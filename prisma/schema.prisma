@@ -1,0 +1,110 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model DomainCategory {
+  id          String   @id @default(uuid())
+  name        String   // "Design & Creative", "Development & Tech"
+  slug        String   @unique // "design", "development"
+  icon        String?  // "🎨", "💻", "🎬"
+  description String?  // Optional description
+  
+  // Flexible 3-column layout
+  columnPosition Int    @default(1) // 1, 2, or 3 (which column)
+  categoryOrder  Int    @default(0) // 0, 1, 2, 3... (order within column)
+  
+  // Relationships
+  domains     Domain[]
+  
+  // Metadata
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  
+  @@index([columnPosition, categoryOrder])
+}
+
+model Domain {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  
+  // Page type: direct content or hierarchical subcategories
+  pageType  String   @default("direct") // "direct" | "hierarchical"
+  
+  // Category relationship
+  category    DomainCategory? @relation(fields: [categoryId], references: [id])
+  categoryId  String?
+  
+  // Ordering within category
+  orderInCategory Int @default(0)
+  
+  // Publication status
+  isPublished Boolean @default(false)
+  
+  pages     Page[]
+  createdAt DateTime @default(now())
+  
+  @@index([categoryId, orderInCategory])
+}
+
+model Page {
+  id        String   @id @default(uuid())
+  title     String
+  slug      String
+
+  // Content type: determines how the page is rendered
+  contentType String @default("narrative") // "narrative" | "section_based" | "subcategory_list"
+
+  domain    Domain   @relation(fields: [domainId], references: [id])
+  domainId  String
+
+  parent     Page?    @relation("PageToSubPages", fields: [parentId], references: [id])
+  parentId   String?
+  subPages   Page[]   @relation("PageToSubPages")
+  content    ContentBlock[]
+
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([domainId, parentId, slug])
+}
+
+model ContentBlock {
+  id        String   @id @default(uuid())
+  page      Page     @relation(fields: [pageId], references: [id])
+  pageId    String
+
+  type      ContentBlockType
+  content   Json
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+enum ContentBlockType {
+  HEADING
+  PARAGRAPH
+  BULLETLIST
+  TABLE
+  COLLAPSIBLE
+  COLUMN
+  TEXT
+  LINK_BUTTON
+  NAVIGATION
+  SECTION_DIVIDER
+  IMAGE
+  VIDEO
+  QUOTE
+  
+  // New section-based content types
+  SECTION_HEADER    // For section titles like "Skill Development"
+  SECTION_LINKS     // For lists of links within sections
+  SUBCATEGORY_CARD  // For subcategory selection cards
+}

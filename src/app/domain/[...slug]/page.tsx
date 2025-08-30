@@ -1,0 +1,263 @@
+// app/domain/[...slug]/page.tsx
+
+import { prisma } from '@/lib/prisma';
+import { notFound } from 'next/navigation';
+import { SubcategorySelector } from '@/components/domain/SubcategorySelector';
+import { SectionBasedLayout } from '@/components/domain/SectionBasedLayout';
+import { NarrativeLayout } from '@/components/domain/NarrativeLayout';
+import { TableLayout } from '@/components/domain/TableLayout';
+import { RichTextLayout } from '@/components/domain/RichTextLayout';
+
+type Props = { params: Promise<{ slug: string[] }> };
+
+// Types for better type safety
+type DomainWithPages = {
+  id: string;
+  name: string;
+  slug: string;
+  pageType: string;
+  pages: PageWithContent[];
+};
+
+type PageWithContent = {
+  id: string;
+  title: string;
+  slug: string;
+  contentType: string;
+  content: any[];
+  subPages: any[];
+};
+
+// Helper function to find page by nested slug path
+async function findPageByPath(domainId: string, slugPath: string[], domain: DomainWithPages): Promise<PageWithContent | null> {
+  if (slugPath.length === 0) return null;
+  
+  let currentPage: PageWithContent | null = null;
+
+  // For direct domains, first look in __main__ page children
+  if (domain.pageType === 'direct') {
+    const mainPage = await prisma.page.findFirst({
+      where: { 
+        domainId: domainId, 
+        slug: '__main__'
+      }
+    });
+
+    if (mainPage) {
+      // Look for the first slug as a child of __main__
+      currentPage = await prisma.page.findFirst({
+        where: {
+          slug: slugPath[0], 
+          domainId: domainId, 
+          parentId: mainPage.id // Child of __main__ page
+        },
+        include: {
+          content: { orderBy: { order: 'asc' } },
+          subPages: { orderBy: { order: 'asc' } }
+        }
+      });
+    }
+  } else {
+    // For hierarchical domains, look for root level pages  
+    currentPage = await prisma.page.findFirst({
+      where: {
+        slug: slugPath[0], 
+        domainId: domainId, 
+        parentId: null 
+      },
+      include: {
+        content: { orderBy: { order: 'asc' } },
+        subPages: { orderBy: { order: 'asc' } }
+      }
+    });
+  }
+
+  // Traverse nested path for remaining slugs
+  for (let i = 1; i < slugPath.length && currentPage; i++) {
+    currentPage = await prisma.page.findFirst({
+      where: {
+        slug: slugPath[i], 
+        domainId: domainId, 
+        parentId: currentPage.id 
+      },
+      include: {
+        content: { orderBy: { order: 'asc' } },
+        subPages: { orderBy: { order: 'asc' } }
+      }
+    });
+  }
+
+  return currentPage as PageWithContent | null;
+}
+
+// NEW: Helper function to get or create main page for direct domains
+async function getOrCreateMainPage(domain: DomainWithPages): Promise<PageWithContent> {
+  // For direct domains, we need a main page to store ContentBlocks
+  let mainPage = await prisma.page.findFirst({
+    where: { 
+      domainId: domain.id, 
+      slug: '__main__'  // Hidden main page identifier
+    },
+    include: {
+      content: { orderBy: { order: 'asc' } },
+      subPages: { orderBy: { order: 'asc' } }
+    }
+  });
+
+  if (!mainPage) {
+    // Create the main page if it doesn't exist
+    mainPage = await prisma.page.create({
+      data: {
+        title: domain.name,
+        slug: '__main__',
+        contentType: 'section_based',
+        domainId: domain.id,
+        order: 0
+      },
+      include: {
+        content: { orderBy: { order: 'asc' } },
+        subPages: { orderBy: { order: 'asc' } }
+      }
+    });
+  }
+
+  return mainPage as PageWithContent;
+}
+
+// Main page handler with hybrid flow logic
+export default async function DomainPage({ params }: Props) {
+  const awaitedParams = await params;
+  const [domainSlug, ...restSlug] = awaitedParams.slug;
+
+//   console.log(domainSlug, restSlug);  // webdev [] | gdesign [] | appdev ['android'] | appdev ['ios'] | appdev ['cross-platform']
+
+  // Find domain with its top-level pages
+  const domain = await prisma.domain.findUnique({
+    where: { slug: domainSlug },
+    include: {
+      pages: {
+        where: { parentId: null },
+        include: {
+          content: { orderBy: { order: 'asc' } },
+          subPages: { orderBy: { order: 'asc' } }
+        },
+        orderBy: { order: 'asc' }
+      }
+    }
+  }) as DomainWithPages | null;
+
+//   console.log("domain", domain);
+
+  // Output on visiting /domain/gdesign
+    /*
+            domain {
+            id: 'cf28e597-0d85-440e-869c-243d1cf35286',
+            name: '🖌️ Graphic Designing',
+            slug: 'gdesign',
+            pageType: 'direct',
+            categoryId: '09cf15c2-974e-4690-a801-66cae0f85484',
+            orderInCategory: 0,
+            isPublished: true,
+            createdAt: 2025-08-29T19:22:28.398Z,
+            pages: []
+            }
+    */
+
+  // Output on visiting /domain/webdev
+  /*
+        domain {
+        id: '40383f19-4c6b-4a5b-9836-329c93537032',
+        name: '🌐 Web Development',
+        slug: 'webdev',
+        pageType: 'hierarchical',
+        categoryId: '202f456c-387c-4660-9d10-acf1e5f0b41f',
+        orderInCategory: 0,
+        isPublished: true,
+        createdAt: 2025-08-29T19:22:28.439Z,
+        pages: [
+            {
+            id: 'cf291ab4-430a-4cb1-85c1-1a702ff79355',
+            title: 'With Code Web Dev',
+            slug: 'with-code',
+            contentType: 'section_based',
+            domainId: '40383f19-4c6b-4a5b-9836-329c93537032',
+            parentId: null,
+            order: 1,
+            createdAt: 2025-08-30T06:01:49.798Z,
+            content: [],
+            subPages: []
+            },
+            {
+            id: '0908e39d-5362-4cdd-a40c-15b9a126c1d0',
+            title: 'No-Code Web Dev',
+            slug: 'no-code',
+            contentType: 'section_based',
+            domainId: '40383f19-4c6b-4a5b-9836-329c93537032',
+            parentId: null,
+            order: 2,
+            createdAt: 2025-08-30T06:01:49.835Z,
+            content: [],
+            subPages: []
+            }
+        ]
+        }
+  */
+
+  if (!domain) return notFound();
+
+  // This logic checks if the user is accessing the top-level domain route (e.g., /domain/gdesign).
+  // It is needed to determine whether to show the main section-based layout directly (for "direct" domains)
+  // or to present a subcategory selection screen (for "hierarchical" domains).
+  // This checks if the user is visiting the top-level domain route (e.g., /domain/gdesign) with no additional path segments after the domain slug.
+
+  if (restSlug.length === 0) {      //Only true when user visit /domain/gdesign or /domain/webdev without any additional path segments after the domain slug.
+    // Direct domain access: /domain/gdesign or /domain/webdev
+    
+    if (domain.pageType === 'direct') {
+      // NEW: Direct domains get or create main page with ContentBlocks
+      const mainPage = await getOrCreateMainPage(domain);
+      return <SectionBasedLayout domain={domain} page={mainPage} />;
+    } else {
+      // Hierarchical domains: Show subcategory selection
+      return <SubcategorySelector domain={domain} />;
+    }
+  } else {
+    // Nested access: /domain/webdev/with-code or /domain/gdesign/youtube-channel
+    const page = await findPageByPath(domain.id, restSlug, domain);
+    
+    if (!page) return notFound();
+
+    // console.log("page in nested access", page);
+
+    // Output on visiting /domain/webdev/with-code
+    /*
+    page in nested access {
+        id: 'cf291ab4-430a-4cb1-85c1-1a702ff79355',
+        title: 'With Code Web Dev',
+        slug: 'with-code',
+        contentType: 'section_based',
+        domainId: '40383f19-4c6b-4a5b-9836-329c93537032',
+        parentId: null,
+        order: 1,
+        createdAt: 2025-08-30T06:01:49.798Z,
+        content: [],
+        subPages: []
+        }
+    */
+    
+    // Render based on page contentType
+    if (page.contentType === 'section_based') {
+      return <SectionBasedLayout page={page} domain={domain} />;
+    } else if (page.contentType === 'subcategory_list') {
+      return <SubcategorySelector domain={domain} page={page} />;
+    } else if (page.contentType === 'table') {
+      return <TableLayout page={page} domain={domain} />;
+    } else if (page.contentType === 'rich_text') {
+      return <RichTextLayout page={page} domain={domain} />;
+    } else {
+      // Default narrative layout
+      return <NarrativeLayout page={page} domain={domain} />;
+    }
+  }
+}
+
