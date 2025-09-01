@@ -63,6 +63,10 @@ model Page {
   // Content type: determines how the page is rendered
   contentType String @default("narrative") // "narrative" | "section_based" | "subcategory_list"
 
+  // Section configuration for section_based pages
+  // Stores how child pages are organized into 3-column layout
+  sections   Json?
+
   domain    Domain   @relation(fields: [domainId], references: [id])
   domainId  String
 

@@ -24,6 +24,7 @@ type PageWithContent = {
   title: string;
   slug: string;
   contentType: string;
+  sections?: any;  // JSON field for section configuration
   content: any[];
   subPages: any[];
 };
@@ -51,23 +52,45 @@ async function findPageByPath(domainId: string, slugPath: string[], domain: Doma
           domainId: domainId, 
           parentId: mainPage.id // Child of __main__ page
         },
-        include: {
-          content: { orderBy: { order: 'asc' } },
-          subPages: { orderBy: { order: 'asc' } }
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          contentType: true,
+          sections: true,  // Include sections configuration
+          content: {
+            select: { id: true, type: true, content: true, order: true },
+            orderBy: { order: 'asc' }
+          },
+          subPages: {
+            select: { id: true, title: true, slug: true },
+            orderBy: { order: 'asc' }
+          }
         }
       });
     }
   } else {
     // For hierarchical domains, look for root level pages  
     currentPage = await prisma.page.findFirst({
-      where: {
+    where: {
         slug: slugPath[0], 
         domainId: domainId, 
         parentId: null 
       },
-      include: {
-        content: { orderBy: { order: 'asc' } },
-        subPages: { orderBy: { order: 'asc' } }
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        contentType: true,
+        sections: true,  // Include sections configuration
+        content: {
+          select: { id: true, type: true, content: true, order: true },
+          orderBy: { order: 'asc' }
+        },
+        subPages: {
+          select: { id: true, title: true, slug: true },
+          orderBy: { order: 'asc' }
+        }
       }
     });
   }
@@ -80,9 +103,20 @@ async function findPageByPath(domainId: string, slugPath: string[], domain: Doma
         domainId: domainId, 
         parentId: currentPage.id 
       },
-      include: {
-        content: { orderBy: { order: 'asc' } },
-        subPages: { orderBy: { order: 'asc' } }
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        contentType: true,
+        sections: true,  // Include sections configuration
+        content: {
+          select: { id: true, type: true, content: true, order: true },
+          orderBy: { order: 'asc' }
+        },
+        subPages: {
+          select: { id: true, title: true, slug: true },
+          orderBy: { order: 'asc' }
+        }
       }
     });
   }
@@ -98,9 +132,20 @@ async function getOrCreateMainPage(domain: DomainWithPages): Promise<PageWithCon
       domainId: domain.id, 
       slug: '__main__'  // Hidden main page identifier
     },
-    include: {
-      content: { orderBy: { order: 'asc' } },
-      subPages: { orderBy: { order: 'asc' } }
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      contentType: true,
+      sections: true,  // Include sections configuration
+      content: {
+        select: { id: true, type: true, content: true, order: true },
+        orderBy: { order: 'asc' }
+      },
+      subPages: {
+        select: { id: true, title: true, slug: true },
+        orderBy: { order: 'asc' }
+      }
     }
   });
 
@@ -112,11 +157,23 @@ async function getOrCreateMainPage(domain: DomainWithPages): Promise<PageWithCon
         slug: '__main__',
         contentType: 'section_based',
         domainId: domain.id,
-        order: 0
+        order: 0,
+        sections: undefined  // Start with no sections - will be configured later
       },
-      include: {
-        content: { orderBy: { order: 'asc' } },
-        subPages: { orderBy: { order: 'asc' } }
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        contentType: true,
+        sections: true,
+        content: {
+          select: { id: true, type: true, content: true, order: true },
+          orderBy: { order: 'asc' }
+        },
+        subPages: {
+          select: { id: true, title: true, slug: true },
+          orderBy: { order: 'asc' }
+        }
       }
     });
   }
@@ -214,9 +271,26 @@ export default async function DomainPage({ params }: Props) {
     // Direct domain access: /domain/gdesign or /domain/webdev
     
     if (domain.pageType === 'direct') {
-      // NEW: Direct domains get or create main page with ContentBlocks
+      // NEW: Direct domains get or create main page with sections
       const mainPage = await getOrCreateMainPage(domain);
-      return <SectionBasedLayout domain={domain} page={mainPage} />;
+      
+      // Fetch child pages for section organization
+      const childPages = await prisma.page.findMany({
+        where: { 
+          domainId: domain.id,
+          parentId: mainPage.id  // Children of __main__ page
+        },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          contentType: true,
+          parentId: true
+        },
+        orderBy: { order: 'asc' }
+      });
+      
+      return <SectionBasedLayout domain={domain} page={mainPage} childPages={childPages} />;
     } else {
       // Hierarchical domains: Show subcategory selection
       return <SubcategorySelector domain={domain} />;
@@ -247,7 +321,23 @@ export default async function DomainPage({ params }: Props) {
     
     // Render based on page contentType
     if (page.contentType === 'section_based') {
-      return <SectionBasedLayout page={page} domain={domain} />;
+      // Fetch child pages for section organization
+      const childPages = await prisma.page.findMany({
+        where: { 
+          domainId: domain.id,
+          parentId: page.id  // Children of this section-based page
+        },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          contentType: true,
+          parentId: true
+        },
+        orderBy: { order: 'asc' }
+      });
+      
+      return <SectionBasedLayout page={page} domain={domain} childPages={childPages} />;
     } else if (page.contentType === 'subcategory_list') {
       return <SubcategorySelector domain={domain} page={page} />;
     } else if (page.contentType === 'table') {

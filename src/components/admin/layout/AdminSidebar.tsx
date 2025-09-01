@@ -53,6 +53,13 @@ const NAVIGATION_ITEMS = [
   
   // Content management section
   {
+    label: 'Section Layout',
+    href: '/admin/sections',
+    icon: '🎯',
+    description: 'Configure page sections',
+    section: 'content' 
+  },
+  {
     label: 'Content Editor',
     href: '/admin/content',
     icon: '📝',
