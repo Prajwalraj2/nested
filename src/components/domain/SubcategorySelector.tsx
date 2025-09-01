@@ -1,6 +1,8 @@
 // src/components/domain/SubcategorySelector.tsx
+'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 // Types
 type DomainWithPages = {
@@ -25,10 +27,12 @@ export function SubcategorySelector({ domain, page }: {
   domain: DomainWithPages; 
   page?: PageWithContent;
 }) {
+  const pathname = usePathname();
   const subcategories = page?.subPages || domain.pages;
   
-  // Build the current path prefix for nested URLs
-  const pathPrefix = page ? `/domain/${domain.slug}/${page.slug}` : `/domain/${domain.slug}`;
+  // Build the current path prefix for nested URLs using the actual current path
+  // This ensures we get the full hierarchical path correctly
+  const pathPrefix = pathname;
 
 //   console.log("subcategories", subcategories);
 

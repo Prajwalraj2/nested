@@ -44,6 +44,12 @@ export default function Home() {
 
       <p>App Development Page : <Link href="/domain/appdev" className="text-blue-500 underline">/domain/appdev</Link></p>
 
+      <p>Admin Page : <Link href="/admin" className="text-blue-500 underline">/admin</Link></p>
+      <p>Admin Categories Page : <Link href="/admin/categories" className="text-blue-500 underline">/admin/categories</Link></p>
+      <p>Admin Domains Page : <Link href="/admin/domains" className="text-blue-500 underline">/admin/domains</Link></p>
+      <p>Admin Pages Page : <Link href="/admin/pages" className="text-blue-500 underline">/admin/pages</Link></p>
+
+
     </div>
     </div>
   );
