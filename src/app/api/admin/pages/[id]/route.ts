@@ -8,7 +8,7 @@ import { prisma } from '@/lib/prisma';
  * - GET: Fetch single page with full context
  * - PUT: Update page with validation
  * - DELETE: Delete page and all descendants
- * - PATCH: Quick updates (parent changes, etc.)
+ * - PATCH: Quick updates (parent changes, etc.) - not yet implemented
  */
 
 type RouteParams = {

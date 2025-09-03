@@ -60,6 +60,13 @@ const NAVIGATION_ITEMS = [
     section: 'content' 
   },
   {
+    label: 'Tables',
+    href: '/admin/tables',
+    icon: '📊',
+    description: 'Manage data tables',
+    section: 'content' 
+  },
+  {
     label: 'Content Editor',
     href: '/admin/content',
     icon: '📝',
@@ -69,10 +76,10 @@ const NAVIGATION_ITEMS = [
   
   // Future features (commented out for now)
   // {
-  //   label: 'Tables',
-  //   href: '/admin/tables',
-  //   icon: '📊',
-  //   description: 'TanStack table management',
+  //   label: 'Advanced Tables',
+  //   href: '/admin/advanced-tables',
+  //   icon: '📈',
+  //   description: 'Advanced table analytics',
   //   section: 'content'
   // },
   // {

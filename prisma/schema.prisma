@@ -61,7 +61,7 @@ model Page {
   slug      String
 
   // Content type: determines how the page is rendered
-  contentType String @default("narrative") // "narrative" | "section_based" | "subcategory_list"
+  contentType String @default("narrative") // "narrative" | "section_based" | "subcategory_list" | "table" | "rich_text" | "mixed_content"
 
   // Section configuration for section_based pages
   // Stores how child pages are organized into 3-column layout
@@ -74,6 +74,9 @@ model Page {
   parentId   String?
   subPages   Page[]   @relation("PageToSubPages")
   content    ContentBlock[]
+  
+  // Table relationship - one page can have one table
+  table      Table?
 
   order      Int      @default(0)
   createdAt  DateTime @default(now())
@@ -115,4 +118,32 @@ enum ContentBlockType {
   SECTION_HEADER    // For section titles like "Skill Development"
   SECTION_LINKS     // For lists of links within sections
   SUBCATEGORY_CARD  // For subcategory selection cards
+  
+  // Table-related content types
+  TABLE_CONTAINER   // For pages that contain tables
+  TABLE_DESCRIPTION // For table descriptions/headers
+}
+
+model Table {
+  id        String   @id @default(uuid())
+  name      String   // Table name/title
+  pageId    String   @unique
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  // Table Schema Definition (JSON)
+  // Structure: { columns: [{ id, name, type, sortable, filterable, width, ... }] }
+  schema    Json
+
+  // Table Data (JSON) 
+  // Structure: { rows: [{ id, [columnId]: content, ... }] }
+  data      Json
+
+  // Table Settings (JSON)
+  // Structure: { pagination, sorting, filtering, responsive, ... }
+  settings  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([pageId])
 }
