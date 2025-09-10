@@ -40,16 +40,14 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## Phase 1
 - A basic architectural flow with schema & database designing.
-
 ### Phase 2
 - Added Admin Screen with Domain Category, Domain & Page Management Tabs in it
-
 ### Phase 3
 - Added Section Tab in Admin Panel
 ### Phase 4
 - Added basic Tankstack Table v8 functionality + shaDcn Datatable Library ->
-- 
-
+### Phase 5
+- Added Content Editor section in Admin for the page that has Content-type as "rich_text" 
 
 
 
