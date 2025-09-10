@@ -67,6 +67,13 @@ const NAVIGATION_ITEMS = [
     section: 'content' 
   },
   {
+    label: 'Rich Text',
+    href: '/admin/rich-text',
+    icon: '📄',
+    description: 'Create and edit rich content',
+    section: 'content' 
+  },
+  {
     label: 'Content Editor',
     href: '/admin/content',
     icon: '📝',

@@ -312,7 +312,7 @@ function TableCard({ table, viewMode }: TableCardProps) {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href={`/admin/tables/${table.id}/data`}>
+                  <Link href={`/admin/tables/${table.id}`}>
                     📊 Manage Data
                   </Link>
                 </DropdownMenuItem>

@@ -27,6 +27,13 @@ type PageWithContent = {
   sections?: any;  // JSON field for section configuration
   content: any[];
   subPages: any[];
+  richTextContent?: {
+    id: string;
+    htmlContent: string;
+    title: string | null;
+    wordCount: number;
+    updatedAt: Date;
+  } | null;
 };
 
 // Helper function to find page by nested slug path
@@ -65,6 +72,15 @@ async function findPageByPath(domainId: string, slugPath: string[], domain: Doma
           subPages: {
             select: { id: true, title: true, slug: true },
             orderBy: { order: 'asc' }
+          },
+          richTextContent: {
+            select: {
+              id: true,
+              htmlContent: true,
+              title: true,
+              wordCount: true,
+              updatedAt: true
+            }
           }
         }
       });
@@ -90,6 +106,15 @@ async function findPageByPath(domainId: string, slugPath: string[], domain: Doma
         subPages: {
           select: { id: true, title: true, slug: true },
           orderBy: { order: 'asc' }
+        },
+        richTextContent: {
+          select: {
+            id: true,
+            htmlContent: true,
+            title: true,
+            wordCount: true,
+            updatedAt: true
+          }
         }
       }
     });
@@ -116,6 +141,15 @@ async function findPageByPath(domainId: string, slugPath: string[], domain: Doma
         subPages: {
           select: { id: true, title: true, slug: true },
           orderBy: { order: 'asc' }
+        },
+        richTextContent: {
+          select: {
+            id: true,
+            htmlContent: true,
+            title: true,
+            wordCount: true,
+            updatedAt: true
+          }
         }
       }
     });
@@ -173,6 +207,15 @@ async function getOrCreateMainPage(domain: DomainWithPages): Promise<PageWithCon
         subPages: {
           select: { id: true, title: true, slug: true },
           orderBy: { order: 'asc' }
+        },
+        richTextContent: {
+          select: {
+            id: true,
+            htmlContent: true,
+            title: true,
+            wordCount: true,
+            updatedAt: true
+          }
         }
       }
     });

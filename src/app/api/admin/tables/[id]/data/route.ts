@@ -221,7 +221,7 @@ export async function PUT(
       summary: {
         operation,
         rowsProcessed: data.rows.length,
-        totalRows: newData.metadata.totalRows
+        totalRows: newData.metadata?.totalRows || 0
       }
     });
 

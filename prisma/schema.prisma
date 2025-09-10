@@ -77,6 +77,9 @@ model Page {
   
   // Table relationship - one page can have one table
   table      Table?
+  
+  // Rich text relationship - one page can have one rich text content
+  richTextContent RichTextContent?
 
   order      Int      @default(0)
   createdAt  DateTime @default(now())
@@ -122,6 +125,11 @@ enum ContentBlockType {
   // Table-related content types
   TABLE_CONTAINER   // For pages that contain tables
   TABLE_DESCRIPTION // For table descriptions/headers
+  
+  // Rich text related content types
+  RICH_TEXT_CONTAINER   // For pages that contain rich text
+  RICH_TEXT_SECTION     // For rich text sections
+  RICH_TEXT_EDITOR      // For embedded rich text editors
 }
 
 model Table {
@@ -142,6 +150,27 @@ model Table {
   // Structure: { pagination, sorting, filtering, responsive, ... }
   settings  Json?
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([pageId])
+}
+
+model RichTextContent {
+  id        String   @id @default(uuid())
+  pageId    String   @unique  // One-to-one with Page
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  
+  // Main HTML content storage
+  htmlContent  String   @db.Text  // Raw HTML content
+  
+  // Metadata
+  title        String?   // Optional title for the content
+  wordCount    Int       @default(0)
+  
+  // Auto-generated content for search and SEO
+  plainText    String?   @db.Text  // For search functionality
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   

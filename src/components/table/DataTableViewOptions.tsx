@@ -12,6 +12,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import type { TableSchema, ColumnType } from '@/types/table';
 
 /**
  * DataTable View Options Component
@@ -25,10 +26,12 @@ import {
 
 interface DataTableViewOptionsProps<TData> {
   table: Table<TData>;
+  schema: TableSchema;
 }
 
 export function DataTableViewOptions<TData>({
   table,
+  schema,
 }: DataTableViewOptionsProps<TData>) {
   return (
     <DropdownMenu>
@@ -56,18 +59,44 @@ export function DataTableViewOptions<TData>({
               typeof column.accessorFn !== "undefined" && column.getCanHide()
           )
           .map((column) => {
+            // Find the column in schema to get the proper name
+            const schemaColumn = schema.columns.find(col => col.id === column.id);
+            const displayName = schemaColumn?.name || column.id;
+            
             return (
               <DropdownMenuCheckboxItem
                 key={column.id}
-                className="capitalize text-white hover:bg-[#4a4a4a] focus:bg-[#4a4a4a]"
+                className="text-white hover:bg-[#4a4a4a] focus:bg-[#4a4a4a]"
                 checked={column.getIsVisible()}
                 onCheckedChange={(value) => column.toggleVisibility(!!value)}
               >
-                {column.id}
+                <span className="flex items-center space-x-2">
+                  <span>{getColumnIcon(schemaColumn?.type || 'text')}</span>
+                  <span>{displayName}</span>
+                </span>
               </DropdownMenuCheckboxItem>
             );
           })}
       </DropdownMenuContent>
     </DropdownMenu>
   );
+}
+
+// Helper function to get column icon based on type
+function getColumnIcon(type: ColumnType): string {
+  const icons: Record<ColumnType, string> = {
+    text: '📝',
+    badge: '🏷️',
+    link: '🔗',
+    description: '📄',
+    image: '🖼️',
+    number: '🔢',
+    date: '📅',
+    email: '📧',
+    phone: '📞',
+    currency: '💰',
+    rating: '⭐',
+    boolean: '☑️',
+  };
+  return icons[type] || '📝';
 }

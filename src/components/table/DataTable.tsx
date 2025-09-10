@@ -14,6 +14,7 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  ColumnResizeMode,
 } from '@tanstack/react-table';
 
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 
 import { DataTablePagination } from './DataTablePagination';
 import { DataTableViewOptions } from './DataTableViewOptions';
@@ -76,38 +82,58 @@ export function DataTable({
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState({});
   const [globalFilter, setGlobalFilter] = useState('');
+  const [columnResizeMode] = useState<ColumnResizeMode>('onChange');
 
   // Generate TanStack Table columns from schema
   const columns: ColumnDef<any>[] = React.useMemo(() => {
     return schema.columns.map((col) => ({
       accessorKey: col.id,
+      id: col.id,
       header: ({ column }) => {
         return (
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 select-none">
             <span>{getColumnIcon(col.type)}</span>
-            <Button
-              variant="ghost"
+            <button
               onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-              className="-ml-3 h-8 data-[state=open]:bg-accent"
+              className="flex items-center hover:text-blue-400 transition-colors text-left font-medium"
             >
               <span>{col.name}</span>
               {column.getIsSorted() === "desc" ? (
-                <span className="ml-2">↓</span>
+                <span className="ml-2 text-blue-400">↓</span>
               ) : column.getIsSorted() === "asc" ? (
-                <span className="ml-2">↑</span>
+                <span className="ml-2 text-blue-400">↑</span>
               ) : (
                 <span className="ml-2 opacity-50">↕</span>
               )}
-            </Button>
+            </button>
+            
+            {/* Column Resizer - Basic Implementation */}
+            <div
+              className="w-1 h-4 bg-gray-500 cursor-col-resize opacity-0 hover:opacity-100 transition-opacity ml-2"
+              title="Drag to resize column"
+            />
           </div>
         );
       },
       cell: ({ getValue, row }) => {
         const value = getValue();
-        return formatCellValue(value, col.type, row.original);
+        // Debug logging - remove after testing
+        if (col.name === 'Description' || col.id.includes('description')) {
+          console.log('Description column detected:', {
+            columnName: col.name,
+            columnId: col.id,
+            columnType: col.type,
+            value: value
+          });
+        }
+        return formatCellValue(value, col.type, row.original, col.name);
       },
       enableSorting: col.sortable,
       enableColumnFilter: col.filterable,
+      enableResizing: true,
+      size: col.type === 'description' ? 280 : col.type === 'link' ? 200 : 150,
+      minSize: 120,
+      maxSize: col.type === 'description' ? 350 : 400,
       filterFn: col.type === 'text' || col.type === 'description' ? 'includesString' : 'auto',
     }));
   }, [schema.columns]);
@@ -126,6 +152,8 @@ export function DataTable({
     onRowSelectionChange: setRowSelection,
     onGlobalFilterChange: setGlobalFilter,
     globalFilterFn: 'includesString',
+    columnResizeMode,
+    enableColumnResizing: true,
     state: {
       sorting,
       columnFilters,
@@ -177,7 +205,7 @@ export function DataTable({
         {/* Controls */}
         <div className="flex items-center space-x-2">
           {/* Column Visibility */}
-          <DataTableViewOptions table={table} />
+          <DataTableViewOptions table={table} schema={schema} />
           
           {/* Export Dropdown */}
           {onExport && (
@@ -217,8 +245,13 @@ export function DataTable({
       </div>
 
       {/* Table */}
-      <div className="rounded-md border border-gray-600 bg-[#3a3a3a]">
-        <Table>
+      <div className="rounded-md border border-gray-600 bg-[#3a3a3a] overflow-auto">
+        <Table 
+          style={{ 
+            width: table.getTotalSize(),
+            tableLayout: 'fixed'
+          }}
+        >
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow 
@@ -229,7 +262,12 @@ export function DataTable({
                   return (
                     <TableHead 
                       key={header.id}
-                      className="text-gray-200 bg-[#4a4a4a]"
+                      className="text-gray-200 bg-[#4a4a4a] relative"
+                      style={{
+                        width: header.getSize(),
+                        minWidth: header.column.columnDef.minSize,
+                        maxWidth: header.column.columnDef.maxSize,
+                      }}
                     >
                       {header.isPlaceholder
                         ? null
@@ -254,12 +292,19 @@ export function DataTable({
                   {row.getVisibleCells().map((cell) => (
                     <TableCell 
                       key={cell.id}
-                      className="text-gray-100"
+                      className="text-gray-100 relative overflow-hidden"
+                      style={{
+                        width: cell.column.getSize(),
+                        minWidth: cell.column.columnDef.minSize,
+                        maxWidth: cell.column.columnDef.maxSize,
+                      }}
                     >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
+                      <div className="overflow-hidden">
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </div>
                     </TableCell>
                   ))}
                 </TableRow>
@@ -322,21 +367,28 @@ function getColumnIcon(type: ColumnType): string {
 }
 
 // Enhanced cell value formatting with interactive elements
-function formatCellValue(value: any, type: ColumnType, rowData: any): React.JSX.Element {
+function formatCellValue(value: any, type: ColumnType, rowData: any, columnName?: string): React.JSX.Element {
   if (value === null || value === undefined || value === '') {
     return <span className="text-gray-500">-</span>;
   }
 
   switch (type) {
     case 'link':
+      const linkText = String(value);
+      const displayLink = linkText
+        .replace(/^https?:\/\//, '')  // Remove protocol
+        .replace(/^www\./, '')        // Remove www
+        .substring(0, 40) + (linkText.length > 40 ? '...' : ''); // Truncate if too long
+      
       return (
         <a 
           href={String(value)} 
           target="_blank" 
           rel="noopener noreferrer"
-          className="text-blue-400 hover:text-blue-300 underline hover:underline-offset-4 transition-all duration-200 max-w-xs truncate block"
+          className="text-blue-400 hover:text-blue-300 underline hover:underline-offset-4 transition-all duration-200 max-w-xs block"
+          title={linkText}
         >
-          {String(value)}
+          {displayLink}
         </a>
       );
     
@@ -416,29 +468,33 @@ function formatCellValue(value: any, type: ColumnType, rowData: any): React.JSX.
     
     case 'description':
       const text = String(value);
-      const truncated = text.length > 100;
+      const truncated = text.length > 80; // More aggressive truncation
+      const shortText = truncated ? text.substring(0, 80) + '...' : text;
+      
+      if (truncated) {
+        return (
+          <div className="max-w-[250px]">
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="text-left text-gray-300 hover:text-white transition-colors cursor-pointer w-full">
+                  <div className="truncate text-sm leading-5">{shortText}</div>
+                  <div className="text-xs text-blue-400 hover:text-blue-300 mt-1">Click to read more</div>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 bg-[#2a2a2a] border-gray-600 text-white">
+                <div className="space-y-2">
+                  <h4 className="font-medium text-blue-400">{columnName || 'Description'}</h4>
+                  <p className="text-sm text-gray-300 leading-relaxed">{text}</p>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        );
+      }
       
       return (
-        <div className="max-w-xs">
-          <span 
-            className="text-gray-300 cursor-default"
-            title={truncated ? text : undefined}
-          >
-            {truncated ? text.substring(0, 100) + '...' : text}
-          </span>
-          {truncated && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-2 h-auto p-1 text-blue-400 hover:text-blue-300"
-              onClick={() => {
-                // Could open a modal or popover with full text
-                alert(text); // Placeholder - could be improved with a proper modal
-              }}
-            >
-              Read more
-            </Button>
-          )}
+        <div className="max-w-[250px]">
+          <span className="text-gray-300 text-sm leading-5 block truncate">{text}</span>
         </div>
       );
     
@@ -461,9 +517,24 @@ function formatCellValue(value: any, type: ColumnType, rowData: any): React.JSX.
       );
     
     default:
+      const textValue = String(value);
+      // Fallback truncation for any long text content
+      if (textValue.length > 100) {
+        return (
+          <div className="max-w-[200px]">
+            <span 
+              className="text-gray-300 text-sm block truncate cursor-help" 
+              title={textValue}
+            >
+              {textValue}
+            </span>
+          </div>
+        );
+      }
+      
       return (
-        <span className="text-gray-300 max-w-xs truncate block" title={String(value)}>
-          {String(value)}
+        <span className="text-gray-300 max-w-xs truncate block" title={textValue}>
+          {textValue}
         </span>
       );
   }
