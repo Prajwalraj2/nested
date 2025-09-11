@@ -73,12 +73,21 @@ const NAVIGATION_ITEMS = [
     description: 'Create and edit rich content',
     section: 'content' 
   },
+  
+  // User management section
   {
-    label: 'Content Editor',
-    href: '/admin/content',
-    icon: '📝',
-    description: 'Edit page content',
-    section: 'content' 
+    label: 'Admin Users',
+    href: '/admin/users',
+    icon: '👥',
+    description: 'Manage admin accounts',
+    section: 'system'
+  },
+  {
+    label: 'Add New Admin',
+    href: '/admin/users/new',
+    icon: '➕',
+    description: 'Create new admin user',
+    section: 'system'
   },
   
   // Future features (commented out for now)
@@ -106,6 +115,7 @@ export function AdminSidebar() {
   // Group navigation items by section for better organization
   const structureItems = NAVIGATION_ITEMS.filter(item => item.section === 'structure');
   const contentItems = NAVIGATION_ITEMS.filter(item => item.section === 'content'); 
+  const systemItems = NAVIGATION_ITEMS.filter(item => item.section === 'system');
   const mainItems = NAVIGATION_ITEMS.filter(item => !item.section);
 
   return (
@@ -158,6 +168,22 @@ export function AdminSidebar() {
               Content
             </h3>
             {contentItems.map((item) => (
+              <NavigationLink
+                key={item.href} 
+                item={item}
+                isActive={pathname.startsWith(item.href)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* System Management Section */}
+        {systemItems.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+              User Management
+            </h3>
+            {systemItems.map((item) => (
               <NavigationLink
                 key={item.href} 
                 item={item}

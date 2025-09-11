@@ -1,7 +1,8 @@
-
+// import { redirect } from "next/navigation";
 import Link from "next/link";
 
 export default function Home() {
+  // redirect("/domain");
   return (
     <div className="p-4">
 

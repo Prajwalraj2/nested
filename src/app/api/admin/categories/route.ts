@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 /**
@@ -17,6 +18,12 @@ import { prisma } from '@/lib/prisma';
  */
 export async function GET() {
   try {
+    // Check admin authentication
+    const session = await auth()
+    if (!session?.user?.isAdmin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+
     const categories = await prisma.domainCategory.findMany({
       include: {
         domains: {
@@ -78,6 +85,12 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Check admin authentication
+    const session = await auth()
+    if (!session?.user?.isAdmin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+
     // Parse request body
     const body = await request.json();
     

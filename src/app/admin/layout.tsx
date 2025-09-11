@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { SessionProvider } from 'next-auth/react';
 import { AdminLayout } from '@/components/admin/layout/AdminLayout';
 
 /**
@@ -13,8 +14,10 @@ import { AdminLayout } from '@/components/admin/layout/AdminLayout';
  */
 export default function AdminLayoutWrapper({ children }: { children: ReactNode }) {
   return (
-    <AdminLayout>
-      {children}
-    </AdminLayout>
+    <SessionProvider>
+      <AdminLayout>
+        {children}
+      </AdminLayout>
+    </SessionProvider>
   );
 }
