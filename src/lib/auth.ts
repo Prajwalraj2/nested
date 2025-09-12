@@ -94,5 +94,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/login",
     signOut: "/login"
   },
+  trustHost: true, // Allow localhost in production
   debug: process.env.NODE_ENV === "development",
 })
