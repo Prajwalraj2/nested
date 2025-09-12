@@ -200,10 +200,10 @@ export async function PUT(
         );
     }
 
-    // Update the table
+    // Update the table (serialize to ensure Prisma compatibility)
     const updatedTable = await prisma.table.update({
       where: { id: tableId },
-      data: { data: newData },
+      data: { data: JSON.parse(JSON.stringify(newData)) },
       include: {
         page: {
           include: {
@@ -277,7 +277,7 @@ export async function DELETE(
 
     const updatedTable = await prisma.table.update({
       where: { id: tableId },
-      data: { data: emptyData }
+      data: { data: JSON.parse(JSON.stringify(emptyData)) }
     });
 
     return NextResponse.json({

@@ -9,7 +9,6 @@ import {
   TableRow, 
   ColumnType,
   TableSettings,
-  CSVParseResult,
   ValidationRule
 } from '@/types/table';
 
@@ -177,7 +176,7 @@ export function createTableSchema(columns: Omit<TableColumn, 'id'>[]): TableSche
 // Data Validation Utilities
 // =============================================================================
 
-export function validateColumnValue(value: any, column: TableColumn): string[] {
+export function validateColumnValue(value: unknown, column: TableColumn): string[] {
   const errors: string[] = [];
   
   // Check required fields
@@ -232,7 +231,7 @@ export function validateColumnValue(value: any, column: TableColumn): string[] {
   return errors;
 }
 
-function validateRule(value: any, rule: ValidationRule, fieldName: string): string | null {
+function validateRule(value: unknown, rule: ValidationRule, fieldName: string): string | null {
   switch (rule.type) {
     case 'required':
       if (value === null || value === undefined || value === '') {
@@ -241,25 +240,29 @@ function validateRule(value: any, rule: ValidationRule, fieldName: string): stri
       break;
       
     case 'min':
-      if (typeof value === 'string' && value.length < rule.value) {
-        return rule.message || `${fieldName} must be at least ${rule.value} characters`;
-      }
-      if (typeof value === 'number' && value < rule.value) {
-        return rule.message || `${fieldName} must be at least ${rule.value}`;
+      if (typeof rule.value === 'number') {
+        if (typeof value === 'string' && value.length < rule.value) {
+          return rule.message || `${fieldName} must be at least ${rule.value} characters`;
+        }
+        if (typeof value === 'number' && value < rule.value) {
+          return rule.message || `${fieldName} must be at least ${rule.value}`;
+        }
       }
       break;
       
     case 'max':
-      if (typeof value === 'string' && value.length > rule.value) {
-        return rule.message || `${fieldName} must be no more than ${rule.value} characters`;
-      }
-      if (typeof value === 'number' && value > rule.value) {
-        return rule.message || `${fieldName} must be no more than ${rule.value}`;
+      if (typeof rule.value === 'number') {
+        if (typeof value === 'string' && value.length > rule.value) {
+          return rule.message || `${fieldName} must be no more than ${rule.value} characters`;
+        }
+        if (typeof value === 'number' && value > rule.value) {
+          return rule.message || `${fieldName} must be no more than ${rule.value}`;
+        }
       }
       break;
       
     case 'pattern':
-      if (typeof value === 'string' && !new RegExp(rule.value).test(value)) {
+      if (typeof rule.value === 'string' && typeof value === 'string' && !new RegExp(rule.value).test(value)) {
         return rule.message || `${fieldName} format is invalid`;
       }
       break;
@@ -285,7 +288,7 @@ function validateRule(value: any, rule: ValidationRule, fieldName: string): stri
 // =============================================================================
 
 export function transformCsvToTableData(
-  csvData: any[][],
+  csvData: unknown[][],
   schema: TableSchema,
   headerMapping: Record<string, string>
 ): TableData {
@@ -298,7 +301,8 @@ export function transformCsvToTableData(
     
     // Map CSV columns to table columns
     headers.forEach((header, colIndex) => {
-      const columnId = headerMapping[header];
+      const headerStr = String(header);
+      const columnId = headerMapping[headerStr];
       if (columnId && row[colIndex] !== undefined) {
         const column = schema.columns.find(col => col.id === columnId);
         if (column) {
@@ -320,7 +324,7 @@ export function transformCsvToTableData(
   };
 }
 
-export function transformValue(value: any, type: ColumnType): any {
+export function transformValue(value: unknown, type: ColumnType): unknown {
   if (value === null || value === undefined || value === '') {
     return null;
   }
@@ -337,7 +341,7 @@ export function transformValue(value: any, type: ColumnType): any {
       return ['true', '1', 'yes', 'y'].includes(str);
       
     case 'date':
-      const date = new Date(value);
+      const date = new Date(value as string | number | Date);
       return isNaN(date.getTime()) ? null : date.toISOString();
       
     default:

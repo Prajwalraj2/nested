@@ -164,28 +164,28 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Create the table
+      // Create the table (serialize objects to ensure Prisma compatibility)
       const newTable = await tx.table.create({
         data: {
           name: name.trim(),
           pageId,
-          schema,
-          data: data || { 
+          schema: JSON.parse(JSON.stringify(schema)),
+          data: JSON.parse(JSON.stringify(data || { 
             rows: [], 
             metadata: { 
               totalRows: 0, 
               lastUpdated: new Date().toISOString(),
               importSource: 'manual'
             } 
-          },
-          settings: settings || {
+          })),
+          settings: JSON.parse(JSON.stringify(settings || {
             pagination: { enabled: true, pageSize: 25, showSizeSelector: true, showInfo: true },
             sorting: { enabled: true, multiSort: false },
             filtering: { enabled: true, globalSearch: true, columnFilters: true, advancedFilters: false },
             responsive: { enabled: true, breakpoint: 'md', stackColumns: false, hideColumns: [] },
             export: { enabled: true, formats: ['csv', 'json'] },
             ui: { density: 'normal', showBorders: true, alternatingRows: true, stickyHeader: true }
-          }
+          }))
         },
         include: {
           page: {

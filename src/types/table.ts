@@ -41,7 +41,7 @@ export type TableColumn = {
   maxWidth?: number;             // Maximum width
   align?: 'left' | 'center' | 'right';
   required?: boolean;            // Is this column required?
-  defaultValue?: any;            // Default value for new rows
+  defaultValue?: unknown;        // Default value for new rows
   validation?: ValidationRule[]; // Validation rules
   meta?: ColumnMeta;             // Additional column metadata
 };
@@ -82,7 +82,7 @@ export type ColumnMeta = {
 
 export type ValidationRule = {
   type: 'required' | 'min' | 'max' | 'pattern' | 'email' | 'url' | 'custom';
-  value?: any;
+  value?: unknown;
   message: string;
 };
 
@@ -99,7 +99,7 @@ export type TableSchema = {
 
 export type TableRow = {
   id: string;                    // Unique row identifier
-  [columnId: string]: any;       // Dynamic column data
+  [columnId: string]: unknown;   // Dynamic column data
 };
 
 export type TableData = {
@@ -188,7 +188,7 @@ export type TableWithPage = Table & {
 
 export type CSVParseResult = {
   success: boolean;
-  data?: any[][];                // Raw CSV data
+  data?: unknown[][];            // Raw CSV data
   headers?: string[];            // Column headers
   rowCount?: number;
   errors?: string[];
@@ -201,13 +201,13 @@ export type CSVValidationResult = {
     row: number;
     column: string;
     message: string;
-    value: any;
+    value: unknown;
   }>;
   warnings: Array<{
     row: number;
     column: string;
     message: string;
-    value: any;
+    value: unknown;
   }>;
   summary: {
     totalRows: number;
@@ -239,7 +239,7 @@ export type FilterState = {
   globalFilter: string;
   columnFilters: Array<{
     id: string;
-    value: any;
+    value: unknown;
   }>;
 };
 
@@ -321,7 +321,7 @@ export type TableError = {
   code: string;
   message: string;
   field?: string;
-  context?: any;
+  context?: unknown;
 };
 
 export type TableStats = {

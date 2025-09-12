@@ -478,7 +478,7 @@ export function CSVUploadInterface({
                             key={column.id}
                             className="px-4 py-3 text-sm text-gray-900 max-w-xs truncate"
                           >
-                            {row[column.id] || '-'}
+                            {String(row[column.id] || '-')}
                           </td>
                         ))}
                       </tr>
