@@ -185,7 +185,6 @@ export function TableEditor({ table }: TableEditorProps) {
                 <DataTable
                   schema={table.schema}
                   data={table.data}
-                  onExport={handleExport}
                   className="bg-white"
                 />
               ) : (
