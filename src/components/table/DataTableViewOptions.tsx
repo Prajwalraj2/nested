@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import type { TableSchema, ColumnType } from '@/types/table';
+import { Settings2 } from 'lucide-react';
 
 /**
  * DataTable View Options Component
@@ -41,17 +42,13 @@ export function DataTableViewOptions<TData>({
           size="sm"
           className="ml-auto hidden h-8 lg:flex bg-[#3a3a3a] border-gray-600 text-white hover:bg-[#4a4a4a]"
         >
-          👁️ View
+          <Settings2 /> View
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent 
         align="end" 
-        className="w-[150px] bg-[#3a3a3a] border-gray-600"
+        className="min-w-[200px] bg-[#3a3a3a] border-gray-600"
       >
-        <DropdownMenuLabel className="text-gray-200">
-          Toggle columns
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator className="bg-gray-600" />
         {table
           .getAllColumns()
           .filter(
@@ -71,8 +68,7 @@ export function DataTableViewOptions<TData>({
                 onCheckedChange={(value) => column.toggleVisibility(!!value)}
               >
                 <span className="flex items-center space-x-2">
-                  <span>{getColumnIcon(schemaColumn?.type || 'text')}</span>
-                  <span>{displayName}</span>
+                  <span className="whitespace-nowrap">{displayName}</span>
                 </span>
               </DropdownMenuCheckboxItem>
             );
@@ -82,21 +78,3 @@ export function DataTableViewOptions<TData>({
   );
 }
 
-// Helper function to get column icon based on type
-function getColumnIcon(type: ColumnType): string {
-  const icons: Record<ColumnType, string> = {
-    text: '📝',
-    badge: '🏷️',
-    link: '🔗',
-    description: '📄',
-    image: '🖼️',
-    number: '🔢',
-    date: '📅',
-    email: '📧',
-    phone: '📞',
-    currency: '💰',
-    rating: '⭐',
-    boolean: '☑️',
-  };
-  return icons[type] || '📝';
-}

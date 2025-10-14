@@ -12,6 +12,8 @@ import { prisma } from '@/lib/prisma';
  * Includes proper error handling, validation, and ordering management
  */
 
+
+
 /**
  * GET /api/admin/domains
  * Fetch all domains with their category information and page counts

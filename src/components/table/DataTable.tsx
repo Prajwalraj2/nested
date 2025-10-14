@@ -11,6 +11,8 @@ import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
@@ -39,9 +41,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { X } from 'lucide-react';
 
 import { DataTablePagination } from './DataTablePagination';
 import { DataTableViewOptions } from './DataTableViewOptions';
+import { DataTableFacetedFilter } from './DataTableFacetedFilter';
 import type { TableSchema, TableData, ColumnType } from '@/types/table';
 
 /**
@@ -65,7 +69,6 @@ type DataTableProps = {
   title?: string;
   description?: string;
   className?: string;
-  onExport?: (format: 'csv' | 'json') => void;
 };
 
 export function DataTable({
@@ -73,16 +76,14 @@ export function DataTable({
   data,
   title,
   description,
-  className,
-  onExport
+  className
 }: DataTableProps) {
   // Table state
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-  const [rowSelection, setRowSelection] = useState({});
   const [globalFilter, setGlobalFilter] = useState('');
-  const [columnResizeMode] = useState<ColumnResizeMode>('onChange');
+  // const [columnResizeMode] = useState<ColumnResizeMode>('onChange');
 
   // Generate TanStack Table columns from schema
   const columns: ColumnDef<any>[] = React.useMemo(() => {
@@ -92,7 +93,6 @@ export function DataTable({
       header: ({ column }) => {
         return (
           <div className="flex items-center space-x-2 select-none">
-            <span>{getColumnIcon(col.type)}</span>
             <button
               onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
               className="flex items-center hover:text-blue-400 transition-colors text-left font-medium"
@@ -107,11 +107,11 @@ export function DataTable({
               )}
             </button>
             
-            {/* Column Resizer - Basic Implementation */}
-            <div
+            {/* Column Resizer - Basic Implementation - COMMENTED OUT FOR NOW */}
+            {/* <div
               className="w-1 h-4 bg-gray-500 cursor-col-resize opacity-0 hover:opacity-100 transition-opacity ml-2"
               title="Drag to resize column"
-            />
+            /> */}
           </div>
         );
       },
@@ -130,11 +130,21 @@ export function DataTable({
       },
       enableSorting: col.sortable,
       enableColumnFilter: col.filterable,
-      enableResizing: true,
-      size: col.type === 'description' ? 280 : col.type === 'link' ? 200 : 150,
-      minSize: 120,
-      maxSize: col.type === 'description' ? 350 : 400,
-      filterFn: col.type === 'text' || col.type === 'description' ? 'includesString' : 'auto',
+      // COLUMN RESIZING - COMMENTED OUT FOR NOW
+      // enableResizing: true,
+      // size: col.type === 'description' ? 280 : col.type === 'link' ? 200 : 150,
+      // minSize: 120,
+      // maxSize: col.type === 'description' ? 350 : 400,
+      filterFn: col.type === 'badge' 
+        ? (row, id, value) => {
+            // Custom filter for badge columns - supports multiple selection
+            if (!value || value.length === 0) return true;
+            const cellValue = String(row.getValue(id));
+            return value.includes(cellValue);
+          }
+        : col.type === 'text' || col.type === 'description' 
+          ? 'includesString' 
+          : 'auto',
     }));
   }, [schema.columns]);
 
@@ -148,17 +158,18 @@ export function DataTable({
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
     onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
     onGlobalFilterChange: setGlobalFilter,
     globalFilterFn: 'includesString',
-    columnResizeMode,
-    enableColumnResizing: true,
+    // COLUMN RESIZING - COMMENTED OUT FOR NOW
+    // columnResizeMode,
+    // enableColumnResizing: true,
     state: {
       sorting,
       columnFilters,
       columnVisibility,
-      rowSelection,
       globalFilter,
     },
     initialState: {
@@ -168,31 +179,43 @@ export function DataTable({
     },
   });
 
+  // Helper function to detect badge columns and generate filter options
+  const getBadgeColumnFilters = () => {
+    const badgeColumns = schema.columns.filter(col => col.type === 'badge');
+    
+    return badgeColumns.map(col => {
+      // Get unique values from actual data
+      const uniqueValues = new Set();
+      data.rows.forEach(row => {
+        if (row[col.id]) {
+          uniqueValues.add(row[col.id]);
+        }
+      });
+      
+      // Convert to options format
+      const options = Array.from(uniqueValues).map(value => ({
+        label: String(value),
+        value: String(value)
+      }));
+      
+      return {
+        column: table.getColumn(col.id),
+        title: col.name,
+        options
+      };
+    }).filter(filter => filter.column); // Only include if column exists
+  };
+
+  const badgeFilters = getBadgeColumnFilters();
+
   return (
     <div className={`space-y-4 ${className}`}>
       
-      {/* Header Section */}
-      {(title || description) && (
-        <div className="flex items-center justify-between">
-          <div>
-            {title && (
-              <h2 className="text-2xl font-bold tracking-tight text-white">
-                {title}
-              </h2>
-            )}
-            {description && (
-              <p className="text-muted-foreground text-gray-400">
-                {description}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0 sm:space-x-2">
         
-        {/* Search Input */}
+        {/* Search Input + Badge Filters */}
         <div className="flex flex-1 space-x-2">
           <Input
             placeholder="Search all columns..."
@@ -200,57 +223,49 @@ export function DataTable({
             onChange={(event) => setGlobalFilter(String(event.target.value))}
             className="max-w-sm bg-[#3a3a3a] border-gray-600 text-white placeholder:text-gray-400"
           />
+          
+          {/* Badge Column Filters */}
+          {badgeFilters.map((filter) => (
+            <DataTableFacetedFilter
+              key={filter.title}
+              column={filter.column}
+              title={filter.title}
+              options={filter.options}
+            />
+          ))}
+          
+          {/* Reset Filters Button */}
+          {(columnFilters.length > 0 || globalFilter) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                table.resetColumnFilters();
+                setGlobalFilter('');
+              }}
+              className="bg-[#3a3a3a] border-gray-600 text-white hover:bg-[#4a4a4a]"
+            >
+              Reset <X className="ml-1 h-4 w-4" />
+            </Button>
+          )}
         </div>
 
         {/* Controls */}
         <div className="flex items-center space-x-2">
           {/* Column Visibility */}
           <DataTableViewOptions table={table} schema={schema} />
-          
-          {/* Export Dropdown */}
-          {onExport && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="border-gray-600 bg-[#3a3a3a] text-white hover:bg-[#4a4a4a]"
-                >
-                  📤 Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-[#3a3a3a] border-gray-600">
-                <DropdownMenuCheckboxItem
-                  onClick={() => onExport('csv')}
-                  className="text-white hover:bg-[#4a4a4a]"
-                >
-                  📄 Export as CSV
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  onClick={() => onExport('json')}
-                  className="text-white hover:bg-[#4a4a4a]"
-                >
-                  📋 Export as JSON
-                </DropdownMenuCheckboxItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
 
-          {/* Results Count */}
-          <div className="text-sm text-gray-400">
-            {table.getFilteredRowModel().rows.length} of{" "}
-            {table.getCoreRowModel().rows.length} row(s)
-          </div>
         </div>
       </div>
 
       {/* Table */}
       <div className="rounded-md border border-gray-600 bg-[#3a3a3a] overflow-auto">
         <Table 
-          style={{ 
-            width: table.getTotalSize(),
-            tableLayout: 'fixed'
-          }}
+          // COLUMN RESIZING STYLES - COMMENTED OUT FOR NOW
+          // style={{ 
+          //   width: table.getTotalSize(),
+          //   tableLayout: 'fixed'
+          // }}
         >
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -263,11 +278,12 @@ export function DataTable({
                     <TableHead 
                       key={header.id}
                       className="text-gray-200 bg-[#4a4a4a] relative"
-                      style={{
-                        width: header.getSize(),
-                        minWidth: header.column.columnDef.minSize,
-                        maxWidth: header.column.columnDef.maxSize,
-                      }}
+                      // COLUMN RESIZING STYLES - COMMENTED OUT FOR NOW
+                      // style={{
+                      //   width: header.getSize(),
+                      //   minWidth: header.column.columnDef.minSize,
+                      //   maxWidth: header.column.columnDef.maxSize,
+                      // }}
                     >
                       {header.isPlaceholder
                         ? null
@@ -293,11 +309,12 @@ export function DataTable({
                     <TableCell 
                       key={cell.id}
                       className="text-gray-100 relative overflow-hidden"
-                      style={{
-                        width: cell.column.getSize(),
-                        minWidth: cell.column.columnDef.minSize,
-                        maxWidth: cell.column.columnDef.maxSize,
-                      }}
+                      // COLUMN RESIZING STYLES - COMMENTED OUT FOR NOW
+                      // style={{
+                      //   width: cell.column.getSize(),
+                      //   minWidth: cell.column.columnDef.minSize,
+                      //   maxWidth: cell.column.columnDef.maxSize,
+                      // }}
                     >
                       <div className="overflow-hidden">
                         {flexRender(
@@ -326,45 +343,10 @@ export function DataTable({
       {/* Pagination */}
       <DataTablePagination table={table} />
 
-      {/* Footer Stats */}
-      <div className="flex items-center justify-between text-sm text-gray-400">
-        <div>
-          Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{" "}
-          {Math.min(
-            (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-            table.getFilteredRowModel().rows.length
-          )}{" "}
-          of {table.getFilteredRowModel().rows.length} entries
-          {globalFilter && (
-            <span> (filtered from {table.getCoreRowModel().rows.length} total)</span>
-          )}
-        </div>
-        <div>
-          Last updated: {formatDate(data.metadata?.lastUpdated)}
-        </div>
-      </div>
     </div>
   );
 }
 
-// Helper function to get column icon based on type
-function getColumnIcon(type: ColumnType): string {
-  const icons: Record<ColumnType, string> = {
-    text: '📝',
-    badge: '🏷️',
-    link: '🔗',
-    description: '📄',
-    image: '🖼️',
-    number: '🔢',
-    date: '📅',
-    email: '📧',
-    phone: '📞',
-    currency: '💰',
-    rating: '⭐',
-    boolean: '☑️',
-  };
-  return icons[type] || '📝';
-}
 
 // Enhanced cell value formatting with interactive elements
 function formatCellValue(value: any, type: ColumnType, rowData: any, columnName?: string): React.JSX.Element {
@@ -413,7 +395,7 @@ function formatCellValue(value: any, type: ColumnType, rowData: any, columnName?
       const colorIndex = String(value).toLowerCase().charCodeAt(0) % badgeColors.length;
       
       return (
-        <Badge className={`${badgeColors[colorIndex]} hover:opacity-80 transition-opacity`}>
+        <Badge className={`${badgeColors[colorIndex]} hover:opacity-80 transition-opacity rounded-sm text-sm`}>
           {String(value)}
         </Badge>
       );
@@ -468,33 +450,23 @@ function formatCellValue(value: any, type: ColumnType, rowData: any, columnName?
     
     case 'description':
       const text = String(value);
-      const truncated = text.length > 80; // More aggressive truncation
-      const shortText = truncated ? text.substring(0, 80) + '...' : text;
+      const shortText = text.length > 50 ? text.substring(0, 50) + '...' : text;
       
-      if (truncated) {
-        return (
-          <div className="max-w-[250px]">
-            <Popover>
-              <PopoverTrigger asChild>
-                <button className="text-left text-gray-300 hover:text-white transition-colors cursor-pointer w-full">
-                  <div className="truncate text-sm leading-5">{shortText}</div>
-                  <div className="text-xs text-blue-400 hover:text-blue-300 mt-1">Click to read more</div>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 bg-[#2a2a2a] border-gray-600 text-white">
-                <div className="space-y-2">
-                  <h4 className="font-medium text-blue-400">{columnName || 'Description'}</h4>
-                  <p className="text-sm text-gray-300 leading-relaxed">{text}</p>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-        );
-      }
-      
+      // Always show popover for consistency
       return (
         <div className="max-w-[250px]">
-          <span className="text-gray-300 text-sm leading-5 block truncate">{text}</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="text-left text-gray-300 hover:text-white transition-colors cursor-pointer w-full">
+                <div className="truncate text-sm leading-5 py-1">{shortText}</div>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 bg-[#2a2a2a] border-gray-600 text-white">
+              <div>
+                <p className="text-sm text-gray-300 leading-relaxed">{text}</p>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       );
     

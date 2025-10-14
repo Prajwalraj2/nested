@@ -333,7 +333,7 @@ export default async function DomainPage({ params }: Props) {
         orderBy: { order: 'asc' }
       });
       
-      return <SectionBasedLayout domain={domain} page={mainPage} childPages={childPages} />;
+      return <SectionBasedLayout domain={domain} page={mainPage} childPages={childPages} currentPath={`/domain/${domain.slug}`} />;
     } else {
       // Hierarchical domains: Show subcategory selection
       return <SubcategorySelector domain={domain} />;
@@ -380,10 +380,55 @@ export default async function DomainPage({ params }: Props) {
         orderBy: { order: 'asc' }
       });
       
-      return <SectionBasedLayout page={page} domain={domain} childPages={childPages} />;
+      return <SectionBasedLayout page={page} domain={domain} childPages={childPages} currentPath={`/domain/${domain.slug}/${restSlug.join('/')}`} />;
     } else if (page.contentType === 'subcategory_list') {
       return <SubcategorySelector domain={domain} page={page} />;
     } else if (page.contentType === 'table') {
+
+      // console.log("page in nested access for table", page);
+      // console.log("domain in nested access for table", domain);
+      // On visiting : http://localhost:3000/domain/gdesign/ytube
+      // Output:
+      /*
+        page in nested access for table {
+          id: '88a9bf4d-0897-42ba-9c29-16b56e5cca73',
+          title: '▶️ YouTube Channel',
+          slug: 'ytube',
+          contentType: 'table',
+          sections: null,
+          content: [],
+          subPages: [],
+          richTextContent: null
+        }
+      */
+      /*
+        domain in nested access for table {
+          id: 'd9a88a1e-39fe-47e1-bcf2-5e13f4647055',
+          name: '🖌️ Graphic Designing',
+          slug: 'gdesign',
+          pageType: 'direct',
+          categoryId: '70d70dae-f839-4fb0-bec2-423707bfa253',
+          orderInCategory: 0,
+          isPublished: true,
+          createdAt: 2025-09-12T05:20:50.985Z,
+          pages: [
+            {
+              id: 'ecab70c3-0260-45af-b7bc-f1c5ce18905a',
+              title: '☘️ Graphic Designing',
+              slug: '__main__',
+              contentType: 'section_based',
+              sections: [Array],
+              domainId: 'd9a88a1e-39fe-47e1-bcf2-5e13f4647055',
+              parentId: null,
+              order: 0,
+              createdAt: 2025-09-12T05:20:53.903Z,
+              content: [],
+              subPages: [Array]
+            }
+          ]
+        }
+      */
+
       return <TableLayout page={page} domain={domain} />;
     } else if (page.contentType === 'rich_text') {
       return <RichTextLayout page={page} domain={domain} />;
