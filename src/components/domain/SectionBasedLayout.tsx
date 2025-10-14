@@ -37,11 +37,13 @@ type Section = {
 export function SectionBasedLayout({ 
   domain, 
   page, 
-  childPages = [] 
+  childPages = [],
+  currentPath = ''
 }: {
   domain: Domain;
   page?: Page;
   childPages?: ChildPage[];
+  currentPath?: string;
 }) {
   const title = page?.title || domain.name;
   const sections: Section[] = page?.sections || [];
@@ -79,6 +81,7 @@ export function SectionBasedLayout({
                     key={`${columnNumber}-${index}`}
                     section={section}
                     domain={domain}
+                    currentPath={currentPath}
                   />
                 ))}
               </div>
@@ -91,9 +94,10 @@ export function SectionBasedLayout({
 }
 
 // Section Column Component
-function SectionColumn({ section, domain }: { 
+function SectionColumn({ section, domain, currentPath }: { 
   section: any;
   domain: Domain;
+  currentPath: string;
 }) {
   return (
     <div className="bg-slate-800/40 rounded-lg border border-slate-700/50 p-6 hover:bg-slate-800/60 hover:border-slate-600/60 transition-all duration-300 shadow-lg hover:shadow-xl">
@@ -108,6 +112,7 @@ function SectionColumn({ section, domain }: {
             key={page.id} 
             page={page}
             domain={domain}
+            currentPath={currentPath}
           />
         ))}
       </div>
@@ -123,23 +128,29 @@ function SectionColumn({ section, domain }: {
 }
 
 // Section Item Component
-function SectionItem({ page, domain }: { 
+function SectionItem({ page, domain, currentPath }: { 
   page: ChildPage;
   domain: Domain;
+  currentPath: string;
 }) {
   // Build URL based on domain type and page hierarchy
-  const buildPageUrl = (page: ChildPage, domain: Domain): string => {
+  const buildPageUrl = (page: ChildPage, domain: Domain, currentPath: string): string => {
     if (domain.pageType === 'direct') {
       // For direct domains: /domain/slug/page-slug
       return `/domain/${domain.slug}/${page.slug}`;
     } else {
-      // For hierarchical domains: we need to build the full path
-      // This is a simplified version - in real implementation you'd need to traverse the hierarchy
-      return `/domain/${domain.slug}/${page.slug}`;
+      // For hierarchical domains: append to the current path
+      // If currentPath is empty (top-level), use domain slug
+      // Otherwise, append to the existing path
+      if (!currentPath || currentPath === '') {
+        return `/domain/${domain.slug}/${page.slug}`;
+      } else {
+        return `${currentPath}/${page.slug}`;
+      }
     }
   };
 
-  const pageUrl = buildPageUrl(page, domain);
+  const pageUrl = buildPageUrl(page, domain, currentPath);
   
   // Get icon based on content type
   const getPageIcon = (contentType: string): string => {
