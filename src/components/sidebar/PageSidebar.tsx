@@ -1,0 +1,239 @@
+'use client';
+
+import Link from 'next/link';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+} from '@/components/ui/sidebar';
+import { usePageSidebarData, type PageSidebarSection, type PageSidebarPage } from '@/hooks/usePageSidebarData';
+
+/**
+ * PageSidebar Component
+ * 
+ * Displays page-specific sidebar with sections and pages
+ * Used when user is viewing a specific page within a domain
+ */
+export function PageSidebar() {
+  const { 
+    pageData, 
+    loading, 
+    error, 
+    togglePageExpansion, 
+    isCurrentPage, 
+    isPageExpanded 
+  } = usePageSidebarData();
+
+  if (loading) {
+    return (
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Loading...</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    );
+  }
+
+  if (error || !pageData) {
+    console.log('[DEBUG PageSidebar] Error or no data:', { error, pageData });
+    return (
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Error</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="text-sm text-muted-foreground p-4">
+              {error || 'Failed to load page data'}
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    );
+  }
+
+  console.log('[DEBUG PageSidebar] Received data:', pageData);
+
+  // Sort sections by column and order
+  const sortedSections = [...pageData.sections].sort((a, b) => {
+    if (a.column !== b.column) {
+      return a.column - b.column;
+    }
+    return a.order - b.order;
+  });
+
+  console.log('[DEBUG PageSidebar] Sorted sections:', sortedSections);
+
+  return (
+    <SidebarContent>
+      {/* Header showing current context */}
+      <SidebarGroup>
+        <SidebarGroupLabel className="text-xs text-muted-foreground">
+          {pageData.type === 'direct_domain' ? 'Domain' : 'Page'}
+        </SidebarGroupLabel>
+        <SidebarGroupContent>
+          <div className="px-2 py-1">
+            <div className="font-semibold text-sm">
+              {pageData.page ? pageData.page.name : pageData.domain.name}
+            </div>
+            {pageData.page && (
+              <div className="text-xs text-muted-foreground">
+                in {pageData.domain.name}
+              </div>
+            )}
+          </div>
+        </SidebarGroupContent>
+      </SidebarGroup>
+
+      {/* Sections */}
+      {sortedSections.map((section, index) => (
+        <PageSidebarSection
+          key={`${section.title}-${index}`}
+          section={section}
+          togglePageExpansion={togglePageExpansion}
+          isCurrentPage={isCurrentPage}
+          isPageExpanded={isPageExpanded}
+        />
+      ))}
+    </SidebarContent>
+  );
+}
+
+/**
+ * Individual Section Component
+ */
+function PageSidebarSection({
+  section,
+  togglePageExpansion,
+  isCurrentPage,
+  isPageExpanded
+}: {
+  section: PageSidebarSection;
+  togglePageExpansion: (pageId: string) => void;
+  isCurrentPage: (url: string) => boolean;
+  isPageExpanded: (pageId: string) => boolean;
+}) {
+  console.log('[DEBUG PageSidebarSection]', section.title, 'has', section.pages.length, 'pages');
+  
+  if (section.pages.length === 0) {
+    console.log('[DEBUG PageSidebarSection] Returning null for empty section:', section.title);
+    return null;
+  }
+
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>{section.title}</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {section.pages.map((page) => (
+            <PageSidebarItem
+              key={page.id}
+              page={page}
+              togglePageExpansion={togglePageExpansion}
+              isCurrentPage={isCurrentPage}
+              isPageExpanded={isPageExpanded}
+            />
+          ))}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
+/**
+ * Individual Page Item Component
+ */
+function PageSidebarItem({
+  page,
+  togglePageExpansion,
+  isCurrentPage,
+  isPageExpanded
+}: {
+  page: PageSidebarPage;
+  togglePageExpansion: (pageId: string) => void;
+  isCurrentPage: (url: string) => boolean;
+  isPageExpanded: (pageId: string) => boolean;
+}) {
+  const isCurrent = isCurrentPage(page.url);
+  const isExpanded = isPageExpanded(page.id);
+  const shouldShowChevron = page.hasChildren && page.contentType === 'subcategory_list';
+
+  // Get icon based on content type
+  const getPageIcon = (contentType: string): string => {
+    const icons: Record<string, string> = {
+      'table': '📊',
+      'rich_text': '📝',
+      'subcategory_list': '📂',
+      'section_based': '📋',
+      'narrative': '📄',
+      'mixed_content': '🎨'
+    };
+    return icons[contentType] || '📄';
+  };
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild className={`
+        ${isCurrent ? 'bg-accent text-accent-foreground' : ''}
+        flex items-center justify-between w-full pr-1
+      `}>
+        <div className="flex items-center justify-between w-full min-w-0">
+          <Link 
+            href={page.url} 
+            className="flex items-center gap-2 min-w-0 flex-1"
+          >
+            <span className="text-sm">{getPageIcon(page.contentType)}</span>
+            <span className="truncate text-sm">{page.title}</span>
+          </Link>
+          
+          {shouldShowChevron && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                togglePageExpansion(page.id);
+              }}
+              className="flex-shrink-0 p-1 hover:bg-accent rounded-sm transition-colors"
+              aria-label={isExpanded ? 'Collapse' : 'Expand'}
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-3 w-3" />
+              ) : (
+                <ChevronRight className="h-3 w-3" />
+              )}
+            </button>
+          )}
+        </div>
+      </SidebarMenuButton>
+
+      {/* Children (for subcategory_list pages) */}
+      {shouldShowChevron && isExpanded && page.children.length > 0 && (
+        <SidebarMenuSub>
+          {page.children.map((childPage) => (
+            <SidebarMenuSubItem key={childPage.id}>
+              <SidebarMenuSubButton asChild className={
+                isCurrentPage(childPage.url) ? 'bg-accent text-accent-foreground' : ''
+              }>
+                <Link href={childPage.url} className="flex items-center gap-2">
+                  <span className="text-xs">{getPageIcon(childPage.contentType)}</span>
+                  <span className="text-sm">{childPage.title}</span>
+                </Link>
+              </SidebarMenuSubButton>
+            </SidebarMenuSubItem>
+          ))}
+        </SidebarMenuSub>
+      )}
+    </SidebarMenuItem>
+  );
+}

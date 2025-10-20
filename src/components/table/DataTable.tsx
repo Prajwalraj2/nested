@@ -47,6 +47,7 @@ import { DataTablePagination } from './DataTablePagination';
 import { DataTableViewOptions } from './DataTableViewOptions';
 import { DataTableFacetedFilter } from './DataTableFacetedFilter';
 import type { TableSchema, TableData, ColumnType } from '@/types/table';
+import { ArrowDown, ArrowUp, ChevronsUpDown, EyeOff } from "lucide-react"
 
 /**
  * Professional DataTable Component
@@ -93,19 +94,21 @@ export function DataTable({
       header: ({ column }) => {
         return (
           <div className="flex items-center space-x-2 select-none">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-              className="flex items-center hover:text-blue-400 transition-colors text-left font-medium"
+              className="flex items-center hover:bg-gray-600 text-color-white"
             >
               <span>{col.name}</span>
               {column.getIsSorted() === "desc" ? (
-                <span className="ml-2 text-blue-400">↓</span>
+                <span className="ml-2 text-blue-400"><ArrowDown /></span>
               ) : column.getIsSorted() === "asc" ? (
-                <span className="ml-2 text-blue-400">↑</span>
+                <span className="ml-2 text-blue-400"><ArrowUp /></span>
               ) : (
-                <span className="ml-2 opacity-50">↕</span>
+                <span className="ml-2 opacity-50"><ChevronsUpDown color="gray" size={16} /></span>
               )}
-            </button>
+            </Button>
             
             {/* Column Resizer - Basic Implementation - COMMENTED OUT FOR NOW */}
             {/* <div
