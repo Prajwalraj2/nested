@@ -87,7 +87,7 @@ export default async function DomainIndexPage() {
               Explore Our Domains
             </h1>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              Discover a wide range of specialized domains, each offering unique expertise and opportunities.
+              Discover a wide range of specialized domains, each offering unique expertise and opportunities
             </p>
             <div className="flex items-center justify-center mt-4 space-x-4">
               <div className="flex items-center text-sm text-slate-500">
