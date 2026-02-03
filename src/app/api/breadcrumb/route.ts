@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Parse the path to extract segments
-    const segments = path.split('/').filter(Boolean);
+    const segments = path.split('/').filter(Boolean); // Split the path into segments and filter out empty segments
     
     if (segments.length === 0 || segments[0] !== 'domain') {
       return NextResponse.json(

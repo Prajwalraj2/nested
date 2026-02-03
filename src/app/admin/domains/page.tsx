@@ -307,6 +307,7 @@ async function fetchDomainsWithFilters(searchParams: SearchParams) {
       pageType: domain.pageType,
       isPublished: domain.isPublished,
       orderInCategory: domain.orderInCategory,
+      targetCountries: domain.targetCountries,
       createdAt: domain.createdAt,
       category: domain.category,
       pageCount: domain._count.pages,

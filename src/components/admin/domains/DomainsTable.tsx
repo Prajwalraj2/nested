@@ -38,6 +38,7 @@ type Domain = {
   pageType: string;
   isPublished: boolean;
   orderInCategory: number;
+  targetCountries?: string[];
   createdAt: Date;
   category: Category | null;
   pageCount: number;
@@ -132,7 +133,8 @@ export function DomainsTable({ domains, categories }: DomainsTableProps) {
             pageType: domainToEdit.pageType,
             categoryId: domainToEdit.category?.id || '',
             orderInCategory: domainToEdit.orderInCategory,
-            isPublished: domainToEdit.isPublished
+            isPublished: domainToEdit.isPublished,
+            targetCountries: domainToEdit.targetCountries || ['ALL']
           }}
           categories={categories}
           onSuccess={() => {
@@ -327,6 +329,7 @@ type EditDomainModalProps = {
     categoryId: string;
     orderInCategory: number;
     isPublished: boolean;
+    targetCountries?: string[];
   };
   categories: Category[];
   onSuccess: () => void;

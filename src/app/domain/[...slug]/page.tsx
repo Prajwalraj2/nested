@@ -7,6 +7,7 @@ import { SectionBasedLayout } from '@/components/domain/SectionBasedLayout';
 import { NarrativeLayout } from '@/components/domain/NarrativeLayout';
 import { TableLayout } from '@/components/domain/TableLayout';
 import { RichTextLayout } from '@/components/domain/RichTextLayout';
+import { getUserCountryFromCookies, buildCountryFilter, isContentVisibleToUser } from '@/lib/server-country';
 
 type Props = { params: Promise<{ slug: string[] }> };
 
@@ -16,6 +17,7 @@ type DomainWithPages = {
   name: string;
   slug: string;
   pageType: string;
+  targetCountries: string[];
   pages: PageWithContent[];
 };
 
@@ -37,7 +39,7 @@ type PageWithContent = {
 };
 
 // Helper function to find page by nested slug path
-async function findPageByPath(domainId: string, slugPath: string[], domain: DomainWithPages): Promise<PageWithContent | null> {
+async function findPageByPath(domainId: string, slugPath: string[], domain: DomainWithPages, userCountry: string): Promise<PageWithContent | null> {
   if (slugPath.length === 0) return null;
   
   let currentPage: PageWithContent | null = null;
@@ -57,7 +59,8 @@ async function findPageByPath(domainId: string, slugPath: string[], domain: Doma
         where: {
           slug: slugPath[0], 
           domainId: domainId, 
-          parentId: mainPage.id // Child of __main__ page
+          parentId: mainPage.id, // Child of __main__ page
+          ...buildCountryFilter(userCountry)
         },
         select: {
           id: true,
@@ -91,7 +94,8 @@ async function findPageByPath(domainId: string, slugPath: string[], domain: Doma
     where: {
         slug: slugPath[0], 
         domainId: domainId, 
-        parentId: null 
+        parentId: null,
+        ...buildCountryFilter(userCountry)
       },
       select: {
         id: true,
@@ -126,7 +130,8 @@ async function findPageByPath(domainId: string, slugPath: string[], domain: Doma
       where: {
         slug: slugPath[i], 
         domainId: domainId, 
-        parentId: currentPage.id 
+        parentId: currentPage.id,
+        ...buildCountryFilter(userCountry)
       },
       select: {
         id: true,
@@ -229,6 +234,9 @@ export default async function DomainPage({ params }: Props) {
   const awaitedParams = await params;
   const [domainSlug, ...restSlug] = awaitedParams.slug;
 
+  // Get user's country from cookies
+  const userCountry = await getUserCountryFromCookies();
+
 //   console.log(domainSlug, restSlug);  // webdev [] | gdesign [] | appdev ['android'] | appdev ['ios'] | appdev ['cross-platform']
 
   // Find domain with its top-level pages
@@ -305,6 +313,11 @@ export default async function DomainPage({ params }: Props) {
 
   if (!domain) return notFound();
 
+  // Check if domain is visible to user's country
+  if (!isContentVisibleToUser(domain.targetCountries, userCountry)) {
+    return notFound();
+  }
+
   // This logic checks if the user is accessing the top-level domain route (e.g., /domain/gdesign).
   // It is needed to determine whether to show the main section-based layout directly (for "direct" domains)
   // or to present a subcategory selection screen (for "hierarchical" domains).
@@ -317,11 +330,12 @@ export default async function DomainPage({ params }: Props) {
       // NEW: Direct domains get or create main page with sections
       const mainPage = await getOrCreateMainPage(domain);
       
-      // Fetch child pages for section organization
+      // Fetch child pages for section organization (filtered by user's country)
       const childPages = await prisma.page.findMany({
         where: { 
           domainId: domain.id,
-          parentId: mainPage.id  // Children of __main__ page
+          parentId: mainPage.id,  // Children of __main__ page
+          ...buildCountryFilter(userCountry)
         },
         select: {
           id: true,
@@ -340,7 +354,7 @@ export default async function DomainPage({ params }: Props) {
     }
   } else {
     // Nested access: /domain/webdev/with-code or /domain/gdesign/youtube-channel
-    const page = await findPageByPath(domain.id, restSlug, domain);
+    const page = await findPageByPath(domain.id, restSlug, domain, userCountry);
     
     if (!page) return notFound();
 
@@ -364,11 +378,12 @@ export default async function DomainPage({ params }: Props) {
     
     // Render based on page contentType
     if (page.contentType === 'section_based') {
-      // Fetch child pages for section organization
+      // Fetch child pages for section organization (filtered by user's country)
       const childPages = await prisma.page.findMany({
         where: { 
           domainId: domain.id,
-          parentId: page.id  // Children of this section-based page
+          parentId: page.id,  // Children of this section-based page
+          ...buildCountryFilter(userCountry)
         },
         select: {
           id: true,

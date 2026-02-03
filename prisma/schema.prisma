@@ -49,6 +49,10 @@ model Domain {
   // Publication status
   isPublished Boolean @default(false)
   
+  // Geo-targeting: Which countries this domain is visible to
+  // Values: "ALL" (default, visible everywhere), or country codes like "IN", "US", "GB", "AU", "CA"
+  targetCountries String[] @default(["ALL"])
+  
   pages     Page[]
   createdAt DateTime @default(now())
   
@@ -80,6 +84,10 @@ model Page {
   
   // Rich text relationship - one page can have one rich text content
   richTextContent RichTextContent?
+
+  // Geo-targeting: Which countries this page is visible to
+  // Values: "ALL" (default, visible everywhere), or country codes like "IN", "US", "GB", "AU", "CA"
+  targetCountries String[] @default(["ALL"])
 
   order      Int      @default(0)
   createdAt  DateTime @default(now())
