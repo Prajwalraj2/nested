@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
+import { getUserCountryFromCookies, buildCountryFilter } from '@/lib/server-country';
 
 // Types for better type safety
 type DomainWithCategory = {
@@ -10,6 +11,7 @@ type DomainWithCategory = {
   slug: string;
   orderInCategory: number;
   isPublished: boolean;
+  targetCountries: string[];
   category: {
     id: string;
     name: string;
@@ -22,10 +24,14 @@ type DomainWithCategory = {
 };
 
 export default async function DomainIndexPage() {
-  // Fetch all published domains with their categories, properly ordered
+  // Get user's country from cookies
+  const userCountry = await getUserCountryFromCookies();
+  
+  // Fetch all published domains filtered by user's country
   const domains = await prisma.domain.findMany({
     where: {
       isPublished: true,
+      ...buildCountryFilter(userCountry)
     },
     include: {
       category: true,
@@ -80,7 +86,7 @@ export default async function DomainIndexPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header Section */}
-      <div className="bg-white border-b border-slate-200 shadow-sm">
+      {/* <div className="bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="text-center">
             <h1 className="text-4xl font-bold text-slate-800 mb-3">
@@ -101,7 +107,7 @@ export default async function DomainIndexPage() {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-12">

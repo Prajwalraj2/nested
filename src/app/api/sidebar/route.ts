@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getUserCountryFromRequest, buildCountryFilter, isContentVisibleToUser } from '@/lib/server-country';
 
 /**
  * Sidebar Data API Route
@@ -7,8 +8,8 @@ import { prisma } from '@/lib/prisma';
  * GET /api/sidebar - Fetch all published domains with their page hierarchy
  * 
  * Returns a structured tree of:
- * - Published domains only
- * - All pages within each domain (with parent-child relationships)
+ * - Published domains only (filtered by user's country)
+ * - All pages within each domain (filtered by user's country)
  * - Proper URL generation for navigation
  * 
  * Used by the sidebar to display navigation structure
@@ -16,21 +17,27 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
-    // Fetch all published domains with their categories and pages (same as domain page)
+    // Get user's country from cookie
+    const userCountry = getUserCountryFromRequest(request);
+    
+    // Fetch all published domains filtered by user's country
     const domains = await prisma.domain.findMany({
       where: {
-        isPublished: true
+        isPublished: true,
+        ...buildCountryFilter(userCountry)
       },
       include: {
         category: true,
         pages: {
+          where: buildCountryFilter(userCountry),
           select: {
             id: true,
             title: true,
             slug: true,
             contentType: true,
             parentId: true,
-            order: true
+            order: true,
+            targetCountries: true
           },
           orderBy: [
             { order: 'asc' },

@@ -1,6 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { SUPPORTED_COUNTRIES, ALL_COUNTRIES, getCountryOptions } from '@/lib/countries';
+
+// Get country options for display
+const countryOptions = getCountryOptions();
 
 /**
  * Page Form Component
@@ -40,6 +44,7 @@ type Page = {
   contentType: string;
   parentId: string | null;
   domainId: string;
+  targetCountries?: string[];
   children: Page[];
   depth: number;
   fullPath: string;
@@ -69,7 +74,8 @@ export function PageForm({
     title: editingPage?.title || '',
     slug: editingPage?.slug || '',
     contentType: editingPage?.contentType || 'section_based',
-    parentId: editingPage?.parentId || parentId || getDefaultParentId()
+    parentId: editingPage?.parentId || parentId || getDefaultParentId(),
+    targetCountries: editingPage?.targetCountries || [ALL_COUNTRIES]
   });
   
   // UI state
@@ -152,17 +158,53 @@ export function PageForm({
   /**
    * Handle form field changes
    */
-  const handleChange = (field: string, value: string | null) => {
+  const handleChange = (field: string, value: string | null | string[]) => {
     setFormData(prev => ({
       ...prev,
       [field]: value,
       // Auto-generate slug when title changes (only in create mode)
       ...(field === 'title' && !isEditMode && value && {
-        slug: generateSlug(value)
+        slug: generateSlug(value as string)
       })
     }));
     
     // Clear error when user changes something
+    if (error) setError(null);
+  };
+
+  /**
+   * Handle country toggle for multi-select
+   */
+  const handleCountryToggle = (countryCode: string) => {
+    setFormData(prev => {
+      const currentCountries = prev.targetCountries;
+      
+      // Special handling for "ALL"
+      if (countryCode === ALL_COUNTRIES) {
+        // If ALL is being selected, clear everything else and select only ALL
+        return { ...prev, targetCountries: [ALL_COUNTRIES] };
+      }
+      
+      // If a specific country is being selected
+      let newCountries: string[];
+      
+      if (currentCountries.includes(countryCode)) {
+        // Remove the country
+        newCountries = currentCountries.filter(c => c !== countryCode);
+        // If nothing left, default to ALL
+        if (newCountries.length === 0) {
+          newCountries = [ALL_COUNTRIES];
+        }
+      } else {
+        // Add the country
+        // Remove ALL if it was selected (since we're now selecting specific countries)
+        newCountries = currentCountries.filter(c => c !== ALL_COUNTRIES);
+        newCountries.push(countryCode);
+      }
+      
+      return { ...prev, targetCountries: newCountries };
+    });
+    
     if (error) setError(null);
   };
 
@@ -260,7 +302,8 @@ export function PageForm({
         slug: formData.slug.trim(),
         contentType: formData.contentType,
         domainId: domain.id,
-        parentId: formData.parentId || null
+        parentId: formData.parentId || null,
+        targetCountries: formData.targetCountries
       };
 
       const url = isEditMode ? `/api/admin/pages/${editingPage.id}` : '/api/admin/pages';
@@ -447,6 +490,56 @@ export function PageForm({
         )}
       </div>
 
+      {/* Target Countries Selection */}
+      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+        <div className="mb-3">
+          <h4 className="text-sm font-medium text-gray-700">
+            🌍 Target Countries
+          </h4>
+          <p className="text-xs text-gray-500 mt-1">
+            Select which countries this page should be visible to
+          </p>
+        </div>
+        
+        <div className="flex flex-wrap gap-2">
+          {countryOptions.map(country => {
+            const isSelected = formData.targetCountries.includes(country.code);
+            const isAll = country.code === ALL_COUNTRIES;
+            
+            return (
+              <button
+                key={country.code}
+                type="button"
+                onClick={() => handleCountryToggle(country.code)}
+                className={`
+                  px-3 py-1.5 rounded-full text-sm font-medium transition-all cursor-pointer
+                  ${isSelected 
+                    ? isAll
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-green-600 text-white' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }
+                `}
+              >
+                {country.flag} {country.name}
+              </button>
+            );
+          })}
+        </div>
+        
+        {/* Selected Countries Summary */}
+        <div className="mt-3 text-xs text-gray-600">
+          <strong>Selected:</strong>{' '}
+          {formData.targetCountries.includes(ALL_COUNTRIES)
+            ? '🌐 All Countries (Global)'
+            : formData.targetCountries.map(code => {
+                const country = countryOptions.find(c => c.code === code);
+                return country ? `${country.flag} ${country.name}` : code;
+              }).join(', ')
+          }
+        </div>
+      </div>
+
       {/* URL Preview */}
       {formData.title && formData.slug && (
         <div className="bg-green-50 rounded-lg p-4 border border-green-200">
@@ -456,6 +549,14 @@ export function PageForm({
             <div><strong>URL:</strong> <code className="bg-green-100 px-2 py-1 rounded">{buildPreviewUrl()}</code></div>
             <div><strong>Content Type:</strong> {contentTypeOptions.find(opt => opt.value === formData.contentType)?.label}</div>
             <div><strong>Parent:</strong> {selectedParent ? selectedParent.title : (domain.pageType === 'direct' ? '__main__ (Default)' : 'Root Level')}</div>
+            <div><strong>Visible To:</strong> {
+              formData.targetCountries.includes(ALL_COUNTRIES)
+                ? '🌐 All Countries'
+                : formData.targetCountries.map(code => {
+                    const country = countryOptions.find(c => c.code === code);
+                    return country?.flag || code;
+                  }).join(' ')
+            }</div>
           </div>
         </div>
       )}

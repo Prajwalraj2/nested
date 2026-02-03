@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { SUPPORTED_COUNTRIES, ALL_COUNTRIES } from '@/lib/countries';
 
 /**
  * Individual Domain API Routes
@@ -70,6 +71,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       pageType: domain.pageType,
       isPublished: domain.isPublished,
       orderInCategory: domain.orderInCategory,
+      targetCountries: domain.targetCountries,
       createdAt: domain.createdAt,
       category: domain.category,
       pages: domain.pages,
@@ -131,7 +133,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { name, slug, pageType, categoryId, orderInCategory, isPublished } = body;
+    const { name, slug, pageType, categoryId, orderInCategory, isPublished, targetCountries } = body;
 
     // Check if slug is taken by another domain
     if (slug !== existingDomain.slug) {
@@ -197,6 +199,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       // but it won't be used in the hierarchical structure
     }
 
+    // Process targetCountries
+    const validTargetCountries = validateAndProcessTargetCountries(
+      targetCountries, 
+      existingDomain.targetCountries
+    );
+
     // Update the domain
     const updatedDomain = await prisma.domain.update({
       where: { id },
@@ -206,7 +214,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         pageType,
         categoryId,
         orderInCategory: parseInt(orderInCategory.toString()),
-        isPublished: isPublished ?? existingDomain.isPublished
+        isPublished: isPublished ?? existingDomain.isPublished,
+        targetCountries: validTargetCountries
       },
       include: {
         category: {
@@ -236,6 +245,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         pageType: updatedDomain.pageType,
         isPublished: updatedDomain.isPublished,
         orderInCategory: updatedDomain.orderInCategory,
+        targetCountries: updatedDomain.targetCountries,
         createdAt: updatedDomain.createdAt,
         category: updatedDomain.category,
         pageCount: updatedDomain._count.pages,
@@ -409,6 +419,28 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       });
     }
 
+    // Handle targetCountries change
+    if ('targetCountries' in body) {
+      const validTargetCountries = validateAndProcessTargetCountries(
+        body.targetCountries, 
+        existingDomain.targetCountries
+      );
+
+      const updatedDomain = await prisma.domain.update({
+        where: { id },
+        data: { targetCountries: validTargetCountries }
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Domain target countries updated successfully',
+        domain: {
+          id: updatedDomain.id,
+          targetCountries: updatedDomain.targetCountries
+        }
+      });
+    }
+
     return NextResponse.json(
       { 
         success: false, 
@@ -472,5 +504,62 @@ function validateDomainData(data: any, excludeId?: string): string | null {
     return 'Publication status must be a boolean value';
   }
 
+  // Validate targetCountries if provided
+  if (data.targetCountries !== undefined) {
+    const tcError = validateTargetCountriesFormat(data.targetCountries);
+    if (tcError) return tcError;
+  }
+
   return null; // No validation errors
+}
+
+/**
+ * Validate targetCountries format
+ */
+function validateTargetCountriesFormat(targetCountries: any): string | null {
+  if (!Array.isArray(targetCountries)) {
+    return 'Target countries must be an array';
+  }
+
+  if (targetCountries.length === 0) {
+    return 'Target countries cannot be empty';
+  }
+
+  const validCountries = [ALL_COUNTRIES, ...SUPPORTED_COUNTRIES];
+  
+  for (const country of targetCountries) {
+    if (typeof country !== 'string') {
+      return 'Each target country must be a string';
+    }
+    if (!validCountries.includes(country)) {
+      return `Invalid country code: ${country}. Valid codes are: ${validCountries.join(', ')}`;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Validate and process targetCountries - returns valid array or existing value
+ */
+function validateAndProcessTargetCountries(targetCountries: any, existingValue: string[]): string[] {
+  // If not provided, keep existing value
+  if (targetCountries === undefined) {
+    return existingValue;
+  }
+
+  // Default to ["ALL"] if null or empty array
+  if (!targetCountries || !Array.isArray(targetCountries) || targetCountries.length === 0) {
+    return [ALL_COUNTRIES];
+  }
+
+  const validCountries = [ALL_COUNTRIES, ...SUPPORTED_COUNTRIES];
+  
+  // Filter to only valid country codes
+  const validatedCountries = targetCountries.filter(
+    (c: any) => typeof c === 'string' && validCountries.includes(c)
+  );
+
+  // Return existing if no valid countries after filtering
+  return validatedCountries.length > 0 ? validatedCountries : existingValue;
 }

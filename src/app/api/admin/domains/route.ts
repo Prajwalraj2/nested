@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { SUPPORTED_COUNTRIES, ALL_COUNTRIES } from '@/lib/countries';
 
 /**
  * Domains API Route
@@ -93,6 +94,7 @@ export async function GET(request: NextRequest) {
       pageType: domain.pageType,
       isPublished: domain.isPublished,
       orderInCategory: domain.orderInCategory,
+      targetCountries: domain.targetCountries,
       createdAt: domain.createdAt,
       category: domain.category,
       pageCount: domain._count.pages,
@@ -144,7 +146,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, slug, pageType, categoryId, orderInCategory, isPublished } = body;
+    const { name, slug, pageType, categoryId, orderInCategory, isPublished, targetCountries } = body;
 
     // Check if slug is already taken
     const existingDomain = await prisma.domain.findUnique({
@@ -186,6 +188,9 @@ export async function POST(request: NextRequest) {
       finalOrderInCategory = (lastDomainInCategory?.orderInCategory || 0) + 1;
     }
 
+    // Process targetCountries - default to ["ALL"] if not provided
+    const validTargetCountries = validateAndProcessTargetCountries(targetCountries);
+
     // Create the domain
     const newDomain = await prisma.domain.create({
       data: {
@@ -194,7 +199,8 @@ export async function POST(request: NextRequest) {
         pageType,
         categoryId,
         orderInCategory: finalOrderInCategory,
-        isPublished: isPublished ?? false
+        isPublished: isPublished ?? false,
+        targetCountries: validTargetCountries
       },
       include: {
         category: {
@@ -237,6 +243,7 @@ export async function POST(request: NextRequest) {
         pageType: newDomain.pageType,
         isPublished: newDomain.isPublished,
         orderInCategory: newDomain.orderInCategory,
+        targetCountries: newDomain.targetCountries,
         createdAt: newDomain.createdAt,
         category: newDomain.category,
         pageCount: newDomain._count.pages,
@@ -298,5 +305,57 @@ function validateDomainData(data: any): string | null {
     return 'Publication status must be a boolean value';
   }
 
+  // Validate targetCountries if provided
+  if (data.targetCountries !== undefined) {
+    const tcError = validateTargetCountriesFormat(data.targetCountries);
+    if (tcError) return tcError;
+  }
+
   return null; // No validation errors
+}
+
+/**
+ * Validate targetCountries format
+ */
+function validateTargetCountriesFormat(targetCountries: any): string | null {
+  if (!Array.isArray(targetCountries)) {
+    return 'Target countries must be an array';
+  }
+
+  if (targetCountries.length === 0) {
+    return 'Target countries cannot be empty';
+  }
+
+  const validCountries = [ALL_COUNTRIES, ...SUPPORTED_COUNTRIES];
+  
+  for (const country of targetCountries) {
+    if (typeof country !== 'string') {
+      return 'Each target country must be a string';
+    }
+    if (!validCountries.includes(country)) {
+      return `Invalid country code: ${country}. Valid codes are: ${validCountries.join(', ')}`;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Validate and process targetCountries - returns valid array or default
+ */
+function validateAndProcessTargetCountries(targetCountries: any): string[] {
+  // Default to ["ALL"] if not provided
+  if (!targetCountries || !Array.isArray(targetCountries) || targetCountries.length === 0) {
+    return [ALL_COUNTRIES];
+  }
+
+  const validCountries = [ALL_COUNTRIES, ...SUPPORTED_COUNTRIES];
+  
+  // Filter to only valid country codes
+  const validatedCountries = targetCountries.filter(
+    (c: any) => typeof c === 'string' && validCountries.includes(c)
+  );
+
+  // Return default if no valid countries after filtering
+  return validatedCountries.length > 0 ? validatedCountries : [ALL_COUNTRIES];
 }

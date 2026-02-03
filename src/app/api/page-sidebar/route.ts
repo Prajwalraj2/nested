@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getUserCountryFromRequest, buildCountryFilter, isContentVisibleToUser } from '@/lib/server-country';
 
 /**
  * Page Sidebar Data API Route
@@ -8,13 +9,16 @@ import { prisma } from '@/lib/prisma';
  * GET /api/page-sidebar?domainSlug=webdev&pageSlug=withcode - Fetch pages for hierarchical page
  * 
  * Returns structured data for page sidebar:
- * - Sections with their pages
+ * - Sections with their pages (filtered by user's country)
  * - Page hierarchy for subcategory_list pages
  * - Proper URL generation for navigation
  */
 
 export async function GET(request: NextRequest) {
   try {
+    // Get user's country from cookie
+    const userCountry = getUserCountryFromRequest(request);
+    
     const { searchParams } = new URL(request.url);
     const domainSlug = searchParams.get('domainSlug');
     const pageSlug = searchParams.get('pageSlug');
@@ -26,7 +30,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // First, find the domain
+    // First, find the domain and check if it's visible to the user
     const domain = await prisma.domain.findUnique({
       where: { slug: domainSlug },
       select: {
@@ -34,7 +38,8 @@ export async function GET(request: NextRequest) {
         name: true,
         slug: true,
         pageType: true,
-        isPublished: true
+        isPublished: true,
+        targetCountries: true
       }
     });
 
@@ -45,20 +50,28 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check if domain is visible to user's country
+    if (!isContentVisibleToUser(domain.targetCountries, userCountry)) {
+      return NextResponse.json(
+        { success: false, message: 'Domain not available in your region' },
+        { status: 404 }
+      );
+    }
+
     let sidebarData;
 
     if (pageSlug) {
       // Check domain type first to determine the correct approach
       if (domain.pageType === 'hierarchical') {
         // Hierarchical domain - try to find the specific page
-        sidebarData = await getHierarchicalPageSidebar(domainSlug, pageSlug);
+        sidebarData = await getHierarchicalPageSidebar(domainSlug, pageSlug, userCountry);
       } else {
         // Direct domain - always show all domain pages regardless of current page
-        sidebarData = await getDirectDomainSidebar(domainSlug);
+        sidebarData = await getDirectDomainSidebar(domainSlug, userCountry);
       }
     } else {
       // No page slug - always show domain's sidebar data
-      sidebarData = await getDirectDomainSidebar(domainSlug);
+      sidebarData = await getDirectDomainSidebar(domainSlug, userCountry);
     }
 
     if (!sidebarData) {
@@ -87,13 +100,14 @@ export async function GET(request: NextRequest) {
 
 /**
  * Get sidebar data for direct domain pages
- * Shows all pages of the domain organized by sections
+ * Shows all pages of the domain organized by sections (filtered by user's country)
  */
-async function getDirectDomainSidebar(domainSlug: string) {
+async function getDirectDomainSidebar(domainSlug: string, userCountry: string) {
   const domain = await prisma.domain.findUnique({
     where: { slug: domainSlug },
     include: {
       pages: {
+        where: buildCountryFilter(userCountry),
         select: {
           id: true,
           title: true,
@@ -101,7 +115,8 @@ async function getDirectDomainSidebar(domainSlug: string) {
           contentType: true,
           parentId: true,
           order: true,
-          sections: true // JSON field with section configuration
+          sections: true, // JSON field with section configuration
+          targetCountries: true
         },
         orderBy: [
           { order: 'asc' },
@@ -164,13 +179,14 @@ async function getDirectDomainSidebar(domainSlug: string) {
 
 /**
  * Get sidebar data for hierarchical domain pages
- * Shows all pages of the specific page organized by sections
+ * Shows all pages of the specific page organized by sections (filtered by user's country)
  */
-async function getHierarchicalPageSidebar(domainSlug: string, pageSlug: string) {
+async function getHierarchicalPageSidebar(domainSlug: string, pageSlug: string, userCountry: string) {
   const page = await prisma.page.findFirst({
     where: {
       slug: pageSlug,
-      domain: { slug: domainSlug }
+      domain: { slug: domainSlug },
+      ...buildCountryFilter(userCountry)
     },
     include: {
       domain: {
@@ -186,11 +202,12 @@ async function getHierarchicalPageSidebar(domainSlug: string, pageSlug: string) 
 
   if (!page) return null;
 
-  // Get all child pages for building hierarchy
+  // Get all child pages for building hierarchy (filtered by user's country)
   const allChildPages = await prisma.page.findMany({
     where: {
       domain: { slug: domainSlug },
-      parentId: page.id
+      parentId: page.id,
+      ...buildCountryFilter(userCountry)
     },
     select: {
       id: true,
@@ -198,7 +215,8 @@ async function getHierarchicalPageSidebar(domainSlug: string, pageSlug: string) 
       slug: true,
       contentType: true,
       parentId: true,
-      order: true
+      order: true,
+      targetCountries: true
     },
     orderBy: [
       { order: 'asc' },
@@ -206,11 +224,12 @@ async function getHierarchicalPageSidebar(domainSlug: string, pageSlug: string) 
     ]
   });
 
-  // Get deeper nested children
+  // Get deeper nested children (filtered by user's country)
   const deeperChildren = await prisma.page.findMany({
     where: {
       domain: { slug: domainSlug },
-      parentId: { in: allChildPages.map(child => child.id) }
+      parentId: { in: allChildPages.map(child => child.id) },
+      ...buildCountryFilter(userCountry)
     },
     select: {
       id: true,
@@ -218,7 +237,8 @@ async function getHierarchicalPageSidebar(domainSlug: string, pageSlug: string) 
       slug: true,
       contentType: true,
       parentId: true,
-      order: true
+      order: true,
+      targetCountries: true
     },
     orderBy: [
       { order: 'asc' },

@@ -47,6 +47,7 @@ type Page = {
   contentType: string;
   parentId: string | null;
   domainId: string;
+  targetCountries?: string[];
   createdAt: Date;
   children: Page[];
   depth: number;
@@ -390,6 +391,7 @@ function buildPageHierarchy(flatPages: any[], domain: Domain | null): Page[] {
     contentType: page.contentType,
     parentId: page.parentId,
     domainId: page.domainId,
+    targetCountries: page.targetCountries,
     createdAt: new Date(page.createdAt),
     children: [],
     depth: 0,
