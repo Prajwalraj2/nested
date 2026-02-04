@@ -2,6 +2,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getUserCountryFromRequest } from '@/lib/server-country';
+import { filterRowsByCountry, getPublicSchema, getPublicRows } from '@/lib/table-utils';
+import type { TableData, TableSchema } from '@/types/table';
 
 /**
  * API Route for Frontend Table Data Fetching
@@ -13,6 +16,8 @@ import { prisma } from '@/lib/prisma';
  * 
  * Features:
  * - Retrieves table data by page ID
+ * - **FILTERS ROWS BY USER'S COUNTRY** (geo-targeting)
+ * - Hides targetCountries column from public view
  * - Returns formatted data for frontend consumption
  * - Handles cases where no table exists for the page
  * - Optimized for public display (no sensitive admin data)
@@ -36,6 +41,9 @@ export async function GET(
         { status: 400 }
       );
     }
+
+    // Get user's country from cookie
+    const userCountry = getUserCountryFromRequest(request);
 
     // Find table associated with this page
     const table = await prisma.table.findUnique({
@@ -72,16 +80,41 @@ export async function GET(
       );
     }
 
-    // Return table data formatted for frontend
+    // Get schema and data
+    const schema = table.schema as TableSchema;
+    const data = table.data as TableData;
+
+    // FILTER ROWS BY USER'S COUNTRY
+    const filteredRows = filterRowsByCountry(data.rows || [], userCountry);
+
+    // Remove targetCountries column from public view
+    const publicSchema = getPublicSchema(schema);
+    const publicRows = getPublicRows(filteredRows);
+
+    // Return table data formatted for frontend (filtered by country)
     return NextResponse.json({
       table: {
         id: table.id,
         name: table.name,
-        schema: table.schema,
-        data: table.data,
+        schema: publicSchema,
+        data: {
+          rows: publicRows,
+          metadata: {
+            ...data.metadata,
+            totalRows: publicRows.length,
+            // Include original count for reference (optional)
+            unfilteredTotalRows: data.rows?.length || 0,
+          }
+        },
         settings: table.settings,
         updatedAt: table.updatedAt,
         page: table.page
+      },
+      // Include filtering info for debugging/transparency
+      filtering: {
+        userCountry,
+        originalRowCount: data.rows?.length || 0,
+        filteredRowCount: publicRows.length,
       }
     });
 
