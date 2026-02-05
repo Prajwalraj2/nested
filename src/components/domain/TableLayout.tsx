@@ -590,7 +590,7 @@ export function TableLayout({ page, domain }: TableLayoutProps) {
     }
 
     fetchTableData();
-  }, [page.id]);
+  }, [page.id]); 
 
 
   

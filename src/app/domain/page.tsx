@@ -1,67 +1,45 @@
 // app/domain/page.tsx
+// 
+// Domain Index Page - Shows all published domains organized by category
+// Uses Services Layer for data fetching
+// Includes ISR for optimal performance
 
-import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
-import { getUserCountryFromCookies, buildCountryFilter } from '@/lib/server-country';
+import { getUserCountryFromCookies } from '@/lib/server-country';
+import { DomainService, CategoryService, type DomainWithCategory, type CategoryFull } from '@/services';
 
-// Types for better type safety
-type DomainWithCategory = {
-  id: string;
-  name: string;
-  slug: string;
-  orderInCategory: number;
-  isPublished: boolean;
-  targetCountries: string[];
-  category: {
-    id: string;
-    name: string;
-    slug: string;
-    icon: string | null;
-    description: string | null;
-    columnPosition: number;
-    categoryOrder: number;
-  } | null;
+// ============================================
+// ISR Configuration
+// ============================================
+
+/** Revalidate page every 60 seconds */
+export const revalidate = 60;
+
+/** Force dynamic rendering due to geo-targeting (cookie-based) */
+export const dynamic = 'force-dynamic';
+
+// ============================================
+// Data Organization Helper
+// ============================================
+
+type ColumnData = {
+  [key: number]: {
+    category: CategoryFull | { name: string; slug: string; icon: string; description: string };
+    domains: DomainWithCategory[];
+  }[];
 };
 
-export default async function DomainIndexPage() {
-  // Get user's country from cookies
-  const userCountry = await getUserCountryFromCookies();
+function organizeDomainsIntoColumns(
+  domains: DomainWithCategory[],
+  categories: CategoryFull[]
+): ColumnData {
+  const columnData: ColumnData = { 1: [], 2: [], 3: [] };
   
-  // Fetch all published domains filtered by user's country
-  const domains = await prisma.domain.findMany({
-    where: {
-      isPublished: true,
-      ...buildCountryFilter(userCountry)
-    },
-    include: {
-      category: true,
-    },
-    orderBy: [
-      { category: { columnPosition: 'asc' } },
-      { category: { categoryOrder: 'asc' } },
-      { orderInCategory: 'asc' },
-    ],
-  }) as DomainWithCategory[];
-
-  // Also fetch categories to show empty ones
-  const categories = await prisma.domainCategory.findMany({
-    where: {
-      isActive: true,
-    },
-    orderBy: [
-      { columnPosition: 'asc' },
-      { categoryOrder: 'asc' },
-    ],
-  });
-
-  // Organize domains by category and column
-  const columnData: { [key: number]: any[] } = { 1: [], 2: [], 3: [] };
-  
-  // First, add all categories to their respective columns
+  // Add all categories to their respective columns
   categories.forEach(category => {
-    const categoryDomains = domains.filter(domain => 
-      domain.category?.id === category.id
-    ).sort((a, b) => a.orderInCategory - b.orderInCategory);
+    const categoryDomains = domains
+      .filter(domain => domain.category?.id === category.id)
+      .sort((a, b) => a.orderInCategory - b.orderInCategory);
     
     columnData[category.columnPosition].push({
       category,
@@ -83,32 +61,27 @@ export default async function DomainIndexPage() {
     });
   }
 
+  return columnData;
+}
+
+// ============================================
+// Main Page Component
+// ============================================
+
+export default async function DomainIndexPage() {
+  const userCountry = await getUserCountryFromCookies();
+  
+  // Fetch data using services (parallel execution)
+  const [domains, categories] = await Promise.all([
+    DomainService.getAll(userCountry),
+    CategoryService.getActive(),
+  ]);
+
+  // Organize domains by category and column
+  const columnData = organizeDomainsIntoColumns(domains, categories);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Header Section */}
-      {/* <div className="bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold text-slate-800 mb-3">
-              Explore Our Domains
-            </h1>
-            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              Discover a wide range of specialized domains, each offering unique expertise and opportunities.
-            </p>
-            <div className="flex items-center justify-center mt-4 space-x-4">
-              <div className="flex items-center text-sm text-slate-500">
-                <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                {domains.length} Active Domains
-              </div>
-              <div className="flex items-center text-sm text-slate-500">
-                <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                {categories.length} Categories
-              </div>
-            </div>
-          </div>
-        </div>
-      </div> */}
-
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-12">
         {/* 3-Column Grid Layout */}
@@ -143,17 +116,22 @@ export default async function DomainIndexPage() {
   );
 }
 
+// ============================================
 // Category Card Component
-function CategoryCard({ category, domains }: { 
-  category: any; 
-  domains: DomainWithCategory[] 
-}) {
+// ============================================
+
+type CategoryCardProps = {
+  category: CategoryFull | { name: string; slug: string; icon: string; description: string };
+  domains: DomainWithCategory[];
+};
+
+function CategoryCard({ category, domains }: CategoryCardProps) {
   return (
     <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden hover:shadow-xl transition-shadow duration-300">
       {/* Category Header */}
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
         <div className="flex items-center space-x-3">
-          <span className="text-2xl">{category.icon || '📁'}</span>
+          <span className="text-2xl">{'icon' in category ? category.icon : '📁'}</span>
           <div>
             <h3 className="text-xl font-bold text-white">
               {category.name}
@@ -194,11 +172,16 @@ function CategoryCard({ category, domains }: {
   );
 }
 
-// Individual Domain Card Component
-function DomainCard({ domain, index }: { 
-  domain: DomainWithCategory; 
+// ============================================
+// Domain Card Component
+// ============================================
+
+type DomainCardProps = {
+  domain: DomainWithCategory;
   index: number;
-}) {
+};
+
+function DomainCard({ domain, index }: DomainCardProps) {
   return (
     <Link 
       href={`/domain/${domain.slug}`}

@@ -1,8 +1,7 @@
 'use client';
 
 import Link from "next/link"
-import { useBreadcrumbData } from "@/hooks/useBreadcrumbData"
-
+import { useBreadcrumbDataFromContext } from "@/contexts/PageContextProvider"
 import {
   Breadcrumb,
   BreadcrumbEllipsis,
@@ -20,10 +19,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 export default function BreadcrumbDemo() {
-  const { data, loading, error } = useBreadcrumbData();
+  const { data, loading, error } = useBreadcrumbDataFromContext();
 
   // Don't render anything if no breadcrumbs or loading
-  if (loading || error || data.breadcrumbs.length === 0) {
+  if (loading || error || data.items.length === 0) {
     return null;
   }
 
@@ -32,11 +31,11 @@ export default function BreadcrumbDemo() {
     return (
       <Breadcrumb>
         <BreadcrumbList>
-          {data.breadcrumbs.map((item, index) => (
+          {data.items.map((item, index) => (
             <div key={item.url} className="flex items-center">
               {index > 0 && <BreadcrumbSeparator />}
               <BreadcrumbItem>
-                {index === data.breadcrumbs.length - 1 ? (
+                {index === data.items.length - 1 ? (
                   // Last item is current page (not clickable)
                   <BreadcrumbPage>{item.label}</BreadcrumbPage>
                 ) : (

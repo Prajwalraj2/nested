@@ -14,13 +14,14 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
-import { usePageSidebarData, type PageSidebarSection, type PageSidebarPage } from '@/hooks/usePageSidebarData';
+import { usePageSidebarDataFromContext } from '@/contexts/PageContextProvider';
+import type { PageSidebarSection, PageSidebarPage } from '@/hooks/usePageContext';
 
 /**
  * PageSidebar Component
  * 
- * Displays page-specific sidebar with sections and pages
- * Used when user is viewing a specific page within a domain
+ * Displays page-specific sidebar with sections and pages.
+ * Used when user is viewing a specific page within a domain.
  */
 export function PageSidebar() {
   const { 
@@ -30,7 +31,7 @@ export function PageSidebar() {
     togglePageExpansion, 
     isCurrentPage, 
     isPageExpanded 
-  } = usePageSidebarData();
+  } = usePageSidebarDataFromContext();
 
   if (loading) {
     return (
@@ -48,7 +49,6 @@ export function PageSidebar() {
   }
 
   if (error || !pageData) {
-    console.log('[DEBUG PageSidebar] Error or no data:', { error, pageData });
     return (
       <SidebarContent>
         <SidebarGroup>
@@ -63,8 +63,6 @@ export function PageSidebar() {
     );
   }
 
-  console.log('[DEBUG PageSidebar] Received data:', pageData);
-
   // Sort sections by column and order
   const sortedSections = [...pageData.sections].sort((a, b) => {
     if (a.column !== b.column) {
@@ -72,8 +70,6 @@ export function PageSidebar() {
     }
     return a.order - b.order;
   });
-
-  console.log('[DEBUG PageSidebar] Sorted sections:', sortedSections);
 
   return (
     <SidebarContent>
@@ -124,10 +120,7 @@ function PageSidebarSection({
   isCurrentPage: (url: string) => boolean;
   isPageExpanded: (pageId: string) => boolean;
 }) {
-  console.log('[DEBUG PageSidebarSection]', section.title, 'has', section.pages.length, 'pages');
-  
   if (section.pages.length === 0) {
-    console.log('[DEBUG PageSidebarSection] Returning null for empty section:', section.title);
     return null;
   }
 
